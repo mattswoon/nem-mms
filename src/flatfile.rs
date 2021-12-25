@@ -1,4 +1,5 @@
 use chrono::naive::{NaiveDate, NaiveTime, NaiveDateTime};
+use num::NumCast;
 use crate::error::{
     Error,
     BadPayloadDetails,
@@ -14,6 +15,14 @@ impl FlatFile {
             .map(|r| r.map_err(Error::Csv).and_then(Record::from_csv_record))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(FlatFile(records))
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn records(self) -> Vec<Record> {
+        self.0
     }
 }
 
@@ -227,10 +236,10 @@ impl CommentRecordEndOfReport {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InformationRecord {
-    report_type: String,
-    report_subtype: String,
-    report_version: u32,
-    column_headers: Vec<String>,
+    pub report_type: String,
+    pub report_subtype: String,
+    pub report_version: u32,
+    pub column_headers: Vec<String>,
 }
 
 impl InformationRecord {
@@ -255,10 +264,10 @@ impl InformationRecord {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DataRecord {
-    report_type: String,
-    report_subtype: String,
-    report_version: u32,
-    data: Vec<DataValue>
+    pub report_type: String,
+    pub report_subtype: String,
+    pub report_version: u32,
+    pub data: Vec<DataValue>
 }
 
 impl DataRecord {
@@ -292,6 +301,36 @@ pub enum DataValue {
 }
 
 impl DataValue {
+    pub fn as_f64(self) -> Option<f64> {
+        use DataValue::*;
+        match self {
+            Integer(i) => <f64 as NumCast>::from(i),
+            Float(f) => Some(f),
+            _ => None
+        }
+    }
+
+    pub fn as_string(self) -> Option<String> {
+        use DataValue::*;
+        match self {
+            Integer(i) => Some(i.to_string()),
+            Float(f) => Some(f.to_string()),
+            Date(d) => Some(d.to_string()),
+            Time(t) => Some(t.to_string()),
+            DateTime(dt) => Some(dt.to_string()),
+            String(s) => Some(s)
+        }
+    }
+
+    pub fn as_datetime(self) -> Option<NaiveDateTime> {
+        use DataValue::*;
+        match self {
+            DateTime(dt) => Some(dt),
+            Date(d) => Some(d.and_hms(0, 0, 0)),
+            _ => None
+        }
+    }
+
     fn from_str(s: &str) -> Self {
         if let Ok(i) = s.parse::<i64>() {
             return DataValue::Integer(i)
