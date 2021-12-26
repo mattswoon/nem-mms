@@ -61,6 +61,7 @@ data from a local file. However, the intention is to do much more
  - [ ] Add support for packages
     - [x] DISPATCH_UNIT_SCADA
     - [x] DISPATCH_NEGATIVE_RESIDUE
+    - [x] DISPATCH_LOCAL_PRICE
     - [ ] ... more
 
 # Contributing

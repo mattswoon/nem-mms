@@ -53,4 +53,13 @@ lazy_static! {
             Field::new("NRM_CONSTRAINT_BLOCKED_FLAG", DataType::Boolean, true)
         ]
     );
+
+    pub static ref DISPATCH_LOCAL_PRICE: Schema = Schema::new(
+        vec![
+            Field::new("SETTLEMENTDATE", DataType::Timestamp(TimeUnit::Second, None), false),
+            Field::new("DUID", DataType::Utf8, false),
+            Field::new("LOCAL_PRICE_ADJUSTMENT", DataType::Float64, true),
+            Field::new("LOCALLY_CONSTRAINED", DataType::Int8, true)
+        ]
+    );
 }

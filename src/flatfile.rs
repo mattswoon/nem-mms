@@ -10,6 +10,7 @@ use arrow::{
         DataType,
         Float64Type,
         Int16Type,
+        Int8Type,
         TimestampSecondType,
         TimeUnit,
     },
@@ -91,6 +92,7 @@ impl FlatFile {
             Utf8 => self.get_string_array(idx, allow_nulls),
             Boolean => self.get_boolean_array(idx, allow_nulls),
             Int16 => self.get_int16_array(idx, allow_nulls),
+            Int8 => self.get_int8_array(idx, allow_nulls),
             _ => Err(Error::UnsupportedDataType(datatype.clone()))
         }
     }
@@ -148,7 +150,7 @@ impl FlatFile {
         }
         Ok(Arc::new(arr_builder.finish()))
     }
-    
+
     fn get_int16_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = PrimitiveBuilder::<Int16Type>::new(len);
@@ -162,6 +164,33 @@ impl FlatFile {
                             let val = v.clone()
                                 .as_i16()
                                 .ok_or(Error::DatatypeMismatch { datatype: DataType::Int16, value: value.clone() })?;
+                            arr_builder.append_value(val)
+                                .map_err(Error::Arrow)?;
+                        },
+                        None if allow_nulls => arr_builder.append_null()
+                            .map_err(Error::Arrow)?,
+                        None => return Err(Error::NullError)
+                    };
+                },
+                _ => {}
+            }
+        }
+        Ok(Arc::new(arr_builder.finish()))
+    }
+
+    fn get_int8_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        let len = self.len();
+        let mut arr_builder = PrimitiveBuilder::<Int8Type>::new(len);
+        for record in self.records() {
+            match record {
+                Record::Data(record) => {
+                    let value = record.data.get(idx)
+                        .ok_or(Error::IndexError(idx))?;
+                    match value {
+                        Some(v) => {
+                            let val = v.clone()
+                                .as_i8()
+                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Int8, value: value.clone() })?;
                             arr_builder.append_value(val)
                                 .map_err(Error::Arrow)?;
                         },
@@ -251,8 +280,8 @@ impl Record {
                         .at_index(0)
                         .expected_one_of(
                             vec![
-                                "C".to_string(), 
-                                "I".to_string(), 
+                                "C".to_string(),
+                                "I".to_string(),
                                 "D".to_string()
                             ]
                         )
@@ -264,8 +293,8 @@ impl Record {
                         .at_index(0)
                         .expected_one_of(
                             vec![
-                                "C".to_string(), 
-                                "I".to_string(), 
+                                "C".to_string(),
+                                "I".to_string(),
                                 "D".to_string()
                             ]
                         )
@@ -420,7 +449,7 @@ impl CommentRecordBUT {
         let payload_response_id = record.get(12)
             .map(ToString::to_string)
             .ok_or(Error::PayloadMissingEntry(BadPayloadDetails::new(record.clone()).at_index(12)))?;
-        Ok(CommentRecordBUT { system, report_id, from, to, publish_date, publish_time, market, payload_id, 
+        Ok(CommentRecordBUT { system, report_id, from, to, publish_date, publish_time, market, payload_id,
             payload_response_id })
     }
 }
@@ -523,6 +552,14 @@ impl DataValue {
         }
     }
 
+    pub fn as_i8(self) -> Option<i8> {
+        use DataValue::*;
+        match self {
+            Integer(i) => <i8 as NumCast>::from(i),
+            _ => None
+        }
+    }
+
     pub fn as_f64(self) -> Option<f64> {
         use DataValue::*;
         match self {
@@ -584,7 +621,7 @@ mod tests {
 
     #[test]
     fn emms_comment_record() {
-        let record = csv::StringRecord::from(vec!["C", "NEMP.WORLD", "BIDMOVE_SUMMARY", "AEMO", "PUBLIC", "2021/04/01", "04:43:39", 
+        let record = csv::StringRecord::from(vec!["C", "NEMP.WORLD", "BIDMOVE_SUMMARY", "AEMO", "PUBLIC", "2021/04/01", "04:43:39",
                                              "339145123", "BIDMOVE_SUMMARY", "339145118"]);
         let parsed = Record::from_csv_record(record).unwrap();
         let expected = Record::Comment(
@@ -602,7 +639,7 @@ mod tests {
         );
         assert_eq!(parsed, expected);
     }
-    
+
     #[test]
     fn but_comment_record() {
         let record = csv::StringRecord::from(vec!["C", "PRODUCTION", "BLIND_UPDATE_SUBMISSION", "PARTICIPANTID", "NEMMCO", "2021/09/03",
@@ -642,7 +679,7 @@ mod tests {
 
     #[test]
     fn emms_info_record() {
-        let record = csv::StringRecord::from(vec!["I", "BID", "BIDDAYOFFER_D", "2", "SETTLEMENTDATE", "DUID", "BIDTYPE", "BIDSETTLEMENTDATE", "OFFERDATE", 
+        let record = csv::StringRecord::from(vec!["I", "BID", "BIDDAYOFFER_D", "2", "SETTLEMENTDATE", "DUID", "BIDTYPE", "BIDSETTLEMENTDATE", "OFFERDATE",
                                                   "VERSIONNO", "PARTICIPANTID", "DAILYENERGYCONSTRAINT", "REBIDEXPLANATION", "PRICEBAND1", "PRICEBAND2"]);
         let parsed = Record::from_csv_record(record).unwrap();
         let expected = Record::Information(
@@ -686,7 +723,7 @@ mod tests {
 
     #[test]
     fn data_record() {
-        let record = csv::StringRecord::from(vec!["D", "BID", "BIDDAYOFFER_D", "2", "2021/03/31 00:00", "DUID1", "ENERGY", "2021/03/31 00:00", 
+        let record = csv::StringRecord::from(vec!["D", "BID", "BIDDAYOFFER_D", "2", "2021/03/31 00:00", "DUID1", "ENERGY", "2021/03/31 00:00",
                                                   "2021/03/30 12:19", "1", "PARTICIPANTID1", "241", "1054 F PB1 & PB10 LOSS FACTOR"]);
         let parsed = Record::from_csv_record(record).unwrap();
         let expected = Record::Data(

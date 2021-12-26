@@ -26,6 +26,7 @@ use std::{
 pub enum Package {
     DispatchUnitScada,
     DispatchNegativeResidue,
+    DispatchLocalPrice,
 }
 
 impl Package {
@@ -34,6 +35,7 @@ impl Package {
         match self {
             DispatchUnitScada => "DISPATCH_UNIT_SCADA",
             DispatchNegativeResidue => "DISPATCH_NEGATIVE_RESIDUE",
+            DispatchLocalPrice => "DISPATCH_LOCAL_PRICE",
         }
     }
 
@@ -42,6 +44,7 @@ impl Package {
         match (record.report_type.as_str(), record.report_subtype.as_str()) {
             ("DISPATCH", "UNIT_SCADA") => Some(DispatchUnitScada),
             ("DISPATCH", "NEGATIVE_RESIDUE") => Some(DispatchNegativeResidue),
+            ("DISPATCH", "LOCAL_PRICE") => Some(DispatchLocalPrice),
             _ => None
         }
     }
@@ -51,6 +54,7 @@ impl Package {
         match self {
             DispatchUnitScada => &schema::DISPATCH_UNIT_SCADA,
             DispatchNegativeResidue => &schema::DISPATCH_NEGATIVE_RESIDUE,
+            DispatchLocalPrice => &schema::DISPATCH_LOCAL_PRICE,
         }
     }
 
@@ -83,7 +87,7 @@ pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(
         flatfile.information_record()
             .and_then(|i| Package::from_information_record(i).or_else(|| {
                 println!(
-                    "Unrecognized package - skipping...\n\tReport type:\t{}\n\tSub-type:\t{}", 
+                    "Unrecognized package - skipping...\n\tReport type:\t{}\n\tSub-type:\t{}",
                     i.report_type,
                     i.report_subtype
                 );
