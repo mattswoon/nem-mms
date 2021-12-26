@@ -3,7 +3,7 @@ use csv::ReaderBuilder;
 use zip::read::ZipArchive;
 use nem_mms::{
     flatfile::FlatFile,
-    packages::Package,
+    packages,
     zip::read_zip,
 };
 use std::{
@@ -21,11 +21,7 @@ fn main() {
                     .arg(Arg::with_name("FILE")
                          .required(true)
                          .takes_value(true)
-                         .index(1))
-                    .arg(Arg::with_name("PACKAGE")
-                         .required(true)
-                         .takes_value(true)
-                         .index(2)))
+                         .index(1)))
         .get_matches();
 
     match matches.subcommand() {
@@ -35,8 +31,6 @@ fn main() {
             let fname = std::path::Path::new(&fname);
             let out = std::path::Path::new(&fname)
                 .with_extension("parquet");
-            let package = sub_m.value_of("PACKAGE")
-                .expect("Expected a package");
             let parsed_flatfiles = match fname.extension().map(|s| s.to_str()).flatten() {
                 Some("csv") | Some("CSV") => {
                     let rdr = ReaderBuilder::new()
@@ -57,10 +51,7 @@ fn main() {
                 },
                 _ => vec![]
             };
-            match package {
-                "DISPATCH_UNIT_SCADA" => Package::DispatchUnitScada.to_parquet(parsed_flatfiles, out).unwrap(),
-                _ => panic!("nope")
-            };
+            packages::to_parquet(parsed_flatfiles, out).unwrap();
         },
         _ => {}
     }

@@ -9,6 +9,9 @@ pub enum Error {
     Csv(csv::Error),
     Io(std::io::Error),
     Zip(zip::result::ZipError),
+    Arrow(arrow::error::ArrowError),
+    Parquet(parquet::errors::ParquetError),
+    InvalidFilename(std::path::PathBuf),
 }
 
 #[derive(Debug)]

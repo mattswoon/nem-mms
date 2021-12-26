@@ -21,8 +21,19 @@ impl FlatFile {
         self.0.len()
     }
 
-    pub fn records(self) -> Vec<Record> {
-        self.0
+    pub fn records(&self) -> &'_ Vec<Record> {
+        &self.0
+    }
+
+    pub fn information_record(&self) -> Option<&'_ InformationRecord> {
+        self.0.iter()
+            .filter_map(|r| {
+                match r {
+                    Record::Information(i) => Some(i),
+                    _ => None
+                }
+            })
+            .next()
     }
 }
 

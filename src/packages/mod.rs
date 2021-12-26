@@ -1,7 +1,11 @@
 pub mod schema;
-use crate::flatfile::{
-    FlatFile,
-    Record,
+use crate::{
+    error::Error,
+    flatfile::{
+        FlatFile,
+        Record,
+        InformationRecord,
+    }
 };
 use arrow::{
     array::{
@@ -20,25 +24,34 @@ use parquet::{
 };
 use std::{
     fs::OpenOptions,
+    ffi::{OsStr, OsString},
     path::Path,
     sync::Arc,
     collections::HashMap,
 };
 
-#[derive(Debug)]
-pub enum Error {
-    Arrow(arrow::error::ArrowError),
-    Parquet(parquet::errors::ParquetError),
-    Io(std::io::Error),
-}
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Package {
     DispatchUnitScada
 }
 
 impl Package {
+    pub fn as_str(&self) -> &'_ str {
+        use Package::*;
+        match self {
+            DispatchUnitScada => "DISPATCH_UNIT_SCADA",
+        }
+    }
+
+    pub fn from_information_record(record: &InformationRecord) -> Option<Self> {
+        use Package::*;
+        match (record.report_type.as_str(), record.report_subtype.as_str()) {
+            ("DISPATCH", "UNIT_SCADA") => Some(DispatchUnitScada),
+            _ => None
+        }
+    }
+
     pub fn schema(&self) -> &'static arrow::datatypes::Schema {
         use Package::*;
         match self {
@@ -58,8 +71,8 @@ impl Package {
                 for record in flatfile.records() {
                     match record {
                         Record::Information(record) => {
-                            for (i, colh) in record.column_headers.into_iter().enumerate() {
-                                column_headers.insert(colh, i);
+                            for (i, colh) in record.column_headers.iter().enumerate() {
+                                column_headers.insert(colh.clone(), i);
                             }
                         },
                         Record::Data(record) => {
@@ -115,4 +128,36 @@ impl Package {
         writer.close().map_err(Error::Parquet)?;
         Ok(())
     }
+}
+
+pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
+    let mut reports: HashMap<Package, Vec<FlatFile>> = HashMap::new();
+    for flatfile in flatfiles {
+        if let Some(package) = flatfile.information_record()
+            .and_then(|i| Package::from_information_record(i)) {
+            if let Some(v) = reports.get_mut(&package) {
+                (*v).push(flatfile);
+            } else {
+                reports.insert(package, vec![flatfile]);
+            }
+        }
+    }
+    if reports.len() <= 1 {
+        for (p, fs) in reports.into_iter() {
+            p.to_parquet(fs, &path)?;
+        }
+    } else {
+        for (p, fs) in reports.into_iter() {
+            let ppath = if path.as_ref().is_dir() {
+                path.as_ref().join(format!("{}", p.as_str())).with_extension("parquet")
+            } else {
+                let filename = path.as_ref().file_stem()
+                    .map(|s| vec![s, &OsStr::new(&format!("_{}", p.as_str()))].into_iter().collect::<OsString>())
+                    .ok_or(Error::InvalidFilename(path.as_ref().to_path_buf()))?;
+                Path::new(&filename).with_extension("parquet")
+            };
+            p.to_parquet(fs, ppath)?;
+        }
+    }
+    Ok(())
 }
