@@ -133,14 +133,17 @@ impl Package {
 pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
     let mut reports: HashMap<Package, Vec<FlatFile>> = HashMap::new();
     for flatfile in flatfiles {
-        if let Some(package) = flatfile.information_record()
-            .and_then(|i| Package::from_information_record(i)) {
-            if let Some(v) = reports.get_mut(&package) {
-                (*v).push(flatfile);
-            } else {
-                reports.insert(package, vec![flatfile]);
-            }
-        }
+        flatfile.information_record()
+            .and_then(|i| Package::from_information_record(i).or_else(|| {
+                println!(
+                    "Unrecognized package - skipping...\n\tReport type:\t{}\n\tSub-type:\t{}", 
+                    i.report_type,
+                    i.report_subtype
+                );
+                None
+            }))
+            .and_then(|p| reports.get_mut(&p))
+            .map(|v| (*v).push(flatfile));
     }
     if reports.len() <= 1 {
         for (p, fs) in reports.into_iter() {
