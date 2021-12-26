@@ -1,5 +1,26 @@
 use chrono::naive::{NaiveDate, NaiveTime, NaiveDateTime};
 use num::NumCast;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
+use arrow::{
+    datatypes::{
+        Schema,
+        DataType,
+        Float64Type,
+        Int16Type,
+        TimestampSecondType,
+        TimeUnit,
+    },
+    array::{
+        ArrayRef,
+        PrimitiveBuilder,
+        StringBuilder,
+        BooleanBuilder,
+    },
+    record_batch::RecordBatch,
+};
 use crate::error::{
     Error,
     BadPayloadDetails,
@@ -34,6 +55,180 @@ impl FlatFile {
                 }
             })
             .next()
+    }
+
+    pub fn to_arrow(&self, schema: &Schema) -> Result<RecordBatch, Error> {
+        let column_headers = self.information_record()
+            .map(|r| {
+                let mut hmap: HashMap<String, usize> = HashMap::new();
+                for (i, colh) in r.column_headers.iter().enumerate() {
+                    hmap.insert(colh.clone(), i);
+                }
+                hmap
+            })
+            .ok_or(Error::MissingInformationRecord)?;
+        let mut columns = Vec::new();
+        for field in schema.fields() {
+            column_headers.get(field.name())
+                .ok_or(Error::MissingColumnHeader(field.name().clone()))
+                .and_then(|idx| self.get_array_ref(*idx, field.data_type(), field.is_nullable()))
+                .map(|c| {
+                    columns.push(c);
+                    ()
+                })?;
+        }
+        RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            columns
+        ).map_err(Error::Arrow)
+    }
+
+    pub fn get_array_ref(&self, idx: usize, datatype: &DataType, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        use DataType::*;
+        match datatype {
+            Float64 => self.get_float64_array(idx, allow_nulls),
+            Timestamp(TimeUnit::Second, None) => self.get_timestampsecond_array(idx, allow_nulls),
+            Utf8 => self.get_string_array(idx, allow_nulls),
+            Boolean => self.get_boolean_array(idx, allow_nulls),
+            Int16 => self.get_int16_array(idx, allow_nulls),
+            _ => Err(Error::UnsupportedDataType(datatype.clone()))
+        }
+    }
+
+    fn get_string_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        let len = self.len();
+        let mut arr_builder = StringBuilder::new(len);
+        for record in self.records() {
+            match record {
+                Record::Data(record) => {
+                    let value = record.data.get(idx)
+                        .ok_or(Error::IndexError(idx))?;
+                    match value {
+                        Some(v) => {
+                            let val = v.clone()
+                                .as_string()
+                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Float64, value: value.clone() })?;
+                            arr_builder.append_value(val)
+                                .map_err(Error::Arrow)?;
+                        },
+                        None if allow_nulls => arr_builder.append_null()
+                            .map_err(Error::Arrow)?,
+                        None => return Err(Error::NullError)
+                    };
+                },
+                _ => {}
+            }
+        }
+        Ok(Arc::new(arr_builder.finish()))
+    }
+
+    fn get_float64_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        let len = self.len();
+        let mut arr_builder = PrimitiveBuilder::<Float64Type>::new(len);
+        for record in self.records() {
+            match record {
+                Record::Data(record) => {
+                    let value = record.data.get(idx)
+                        .ok_or(Error::IndexError(idx))?;
+                    match value {
+                        Some(v) => {
+                            let val = v.clone()
+                                .as_f64()
+                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Float64, value: value.clone() })?;
+                            arr_builder.append_value(val)
+                                .map_err(Error::Arrow)?;
+                        },
+                        None if allow_nulls => arr_builder.append_null()
+                            .map_err(Error::Arrow)?,
+                        None => return Err(Error::NullError)
+                    };
+                },
+                _ => {}
+            }
+        }
+        Ok(Arc::new(arr_builder.finish()))
+    }
+    
+    fn get_int16_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        let len = self.len();
+        let mut arr_builder = PrimitiveBuilder::<Int16Type>::new(len);
+        for record in self.records() {
+            match record {
+                Record::Data(record) => {
+                    let value = record.data.get(idx)
+                        .ok_or(Error::IndexError(idx))?;
+                    match value {
+                        Some(v) => {
+                            let val = v.clone()
+                                .as_i16()
+                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Int16, value: value.clone() })?;
+                            arr_builder.append_value(val)
+                                .map_err(Error::Arrow)?;
+                        },
+                        None if allow_nulls => arr_builder.append_null()
+                            .map_err(Error::Arrow)?,
+                        None => return Err(Error::NullError)
+                    };
+                },
+                _ => {}
+            }
+        }
+        Ok(Arc::new(arr_builder.finish()))
+    }
+
+    fn get_boolean_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        let len = self.len();
+        let mut arr_builder = BooleanBuilder::new(len);
+        for record in self.records() {
+            match record {
+                Record::Data(record) => {
+                    let value = record.data.get(idx)
+                        .ok_or(Error::IndexError(idx))?;
+                    match value {
+                        Some(v) => {
+                            let val = v.clone()
+                                .as_bool()
+                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Boolean, value: value.clone() })?;
+                            arr_builder.append_value(val)
+                                .map_err(Error::Arrow)?;
+                        },
+                        None if allow_nulls => arr_builder.append_null()
+                            .map_err(Error::Arrow)?,
+                        None => return Err(Error::NullError)
+                    };
+                },
+                _ => {}
+            }
+        }
+        Ok(Arc::new(arr_builder.finish()))
+    }
+
+    fn get_timestampsecond_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
+        let len = self.len();
+        let mut arr_builder = PrimitiveBuilder::<TimestampSecondType>::new(len);
+        for record in self.records() {
+            match record {
+                Record::Data(record) => {
+                    let value = record.data.get(idx)
+                        .ok_or(Error::IndexError(idx))?;
+                    match value {
+                        Some(v) => {
+                            let val = v.clone()
+                                .as_datetime()
+                                .map(|v| v.timestamp())
+                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Timestamp(TimeUnit::Second, None), value: value.clone() })?;
+                            arr_builder.append_value(val)
+                                .map_err(Error::Arrow)?;
+                        },
+                        None if allow_nulls => arr_builder.append_null()
+                            .map_err(Error::Arrow)?,
+                        None => return Err(Error::NullError)
+                    };
+                },
+                _ => {}
+            }
+        }
+        Ok(Arc::new(arr_builder.finish()))
     }
 }
 
@@ -278,7 +473,7 @@ pub struct DataRecord {
     pub report_type: String,
     pub report_subtype: String,
     pub report_version: u32,
-    pub data: Vec<DataValue>
+    pub data: Vec<Option<DataValue>>
 }
 
 impl DataRecord {
@@ -312,6 +507,22 @@ pub enum DataValue {
 }
 
 impl DataValue {
+    pub fn as_bool(self) -> Option<bool> {
+        use DataValue::*;
+        match self {
+            Integer(i) => Some(i == 1),
+            _ => None
+        }
+    }
+
+    pub fn as_i16(self) -> Option<i16> {
+        use DataValue::*;
+        match self {
+            Integer(i) => <i16 as NumCast>::from(i),
+            _ => None
+        }
+    }
+
     pub fn as_f64(self) -> Option<f64> {
         use DataValue::*;
         match self {
@@ -342,24 +553,27 @@ impl DataValue {
         }
     }
 
-    fn from_str(s: &str) -> Self {
+    fn from_str(s: &str) -> Option<Self> {
+        if s == "" {
+            return None
+        }
         if let Ok(i) = s.parse::<i64>() {
-            return DataValue::Integer(i)
+            return Some(DataValue::Integer(i))
         }
         if let Ok(f) = s.parse::<f64>() {
-            return DataValue::Float(f)
+            return Some(DataValue::Float(f))
         }
         if let Ok(d) = NaiveDate::parse_from_str(s, "%Y/%m/%d") {
-            return DataValue::Date(d)
+            return Some(DataValue::Date(d))
         }
         if let Ok(t) = NaiveTime::parse_from_str(s, "%H:%M:%S") {
-            return DataValue::Time(t)
+            return Some(DataValue::Time(t))
         }
         if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M:%S")
             .or(NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M")) {
-            return DataValue::DateTime(dt)
+            return Some(DataValue::DateTime(dt))
         }
-        DataValue::String(s.to_string())
+        Some(DataValue::String(s.to_string()))
     }
 }
 

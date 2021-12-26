@@ -60,6 +60,7 @@ data from a local file. However, the intention is to do much more
  - [x] Infer package (and schema) from the comment record of csv flat files
  - [ ] Add support for packages
     - [x] DISPATCH_UNIT_SCADA
+    - [x] DISPATCH_NEGATIVE_RESIDUE
     - [ ] ... more
 
 # Contributing

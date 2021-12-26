@@ -29,8 +29,6 @@ fn main() {
             let fname = sub_m.value_of("FILE")
                 .expect("Expected a file");
             let fname = std::path::Path::new(&fname);
-            let out = std::path::Path::new(&fname)
-                .with_extension("parquet");
             let parsed_flatfiles = match fname.extension().map(|s| s.to_str()).flatten() {
                 Some("csv") | Some("CSV") => {
                     let rdr = ReaderBuilder::new()
@@ -51,6 +49,8 @@ fn main() {
                 },
                 _ => vec![]
             };
+            let out = std::path::Path::new(&fname)
+                .with_extension("parquet");
             packages::to_parquet(parsed_flatfiles, out).unwrap();
         },
         _ => {}

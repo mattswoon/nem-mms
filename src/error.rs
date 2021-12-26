@@ -13,6 +13,11 @@ pub enum Error {
     Parquet(parquet::errors::ParquetError),
     InvalidFilename(std::path::PathBuf),
     MissingColumnHeader(String),
+    DatatypeMismatch { datatype: arrow::datatypes::DataType, value: Option<crate::flatfile::DataValue> },
+    IndexError(usize),
+    UnsupportedDataType(arrow::datatypes::DataType),
+    MissingInformationRecord,
+    NullError,
 }
 
 #[derive(Debug)]

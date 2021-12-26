@@ -3,19 +3,10 @@ use crate::{
     error::Error,
     flatfile::{
         FlatFile,
-        Record,
         InformationRecord,
     }
 };
 use arrow::{
-    array::{
-        StringBuilder,
-        PrimitiveBuilder,
-    },
-    datatypes::{
-        Float64Type,
-        TimestampSecondType,
-    },
     record_batch::RecordBatch,
 };
 use parquet::{
@@ -33,7 +24,8 @@ use std::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Package {
-    DispatchUnitScada
+    DispatchUnitScada,
+    DispatchNegativeResidue,
 }
 
 impl Package {
@@ -41,6 +33,7 @@ impl Package {
         use Package::*;
         match self {
             DispatchUnitScada => "DISPATCH_UNIT_SCADA",
+            DispatchNegativeResidue => "DISPATCH_NEGATIVE_RESIDUE",
         }
     }
 
@@ -48,6 +41,7 @@ impl Package {
         use Package::*;
         match (record.report_type.as_str(), record.report_subtype.as_str()) {
             ("DISPATCH", "UNIT_SCADA") => Some(DispatchUnitScada),
+            ("DISPATCH", "NEGATIVE_RESIDUE") => Some(DispatchNegativeResidue),
             _ => None
         }
     }
@@ -55,60 +49,13 @@ impl Package {
     pub fn schema(&self) -> &'static arrow::datatypes::Schema {
         use Package::*;
         match self {
-            DispatchUnitScada => &schema::DISPATCH_UNIT_SCADA
+            DispatchUnitScada => &schema::DISPATCH_UNIT_SCADA,
+            DispatchNegativeResidue => &schema::DISPATCH_NEGATIVE_RESIDUE,
         }
     }
 
     pub fn to_arrow(&self, flatfile: FlatFile) -> Result<RecordBatch, Error> {
-        use Package::*;
-        match self {
-            DispatchUnitScada => {
-                let len = flatfile.len();
-                let mut duid_arr = StringBuilder::new(len);
-                let mut settlementdate_arr = PrimitiveBuilder::<TimestampSecondType>::new(len);
-                let mut scadavalue_arr = PrimitiveBuilder::<Float64Type>::new(len);
-                let mut column_headers: HashMap<String, usize> = HashMap::new();
-                for record in flatfile.records() {
-                    match record {
-                        Record::Information(record) => {
-                            for (i, colh) in record.column_headers.iter().enumerate() {
-                                column_headers.insert(colh.clone(), i);
-                            }
-                        },
-                        Record::Data(record) => {
-                            let duid = column_headers.get("DUID")
-                                .and_then(|idx| record.data.get(*idx))
-                                .and_then(|v| v.clone().as_string())
-                                .ok_or(Error::MissingColumnHeader("DUID".to_string()))?;
-                            let settlementdate = column_headers.get("SETTLEMENTDATE")
-                                .and_then(|idx| record.data.get(*idx))
-                                .and_then(|v| v.clone().as_datetime())
-                                .ok_or(Error::MissingColumnHeader("SETTLEMENTDATE".to_string()))?
-                                .timestamp(); 
-                            let scadavalue = column_headers.get("SCADAVALUE")
-                                .and_then(|idx| record.data.get(*idx))
-                                .and_then(|v| v.clone().as_f64())
-                                .ok_or(Error::MissingColumnHeader("SCADAVALUE".to_string()))?;
-                            duid_arr.append_value(duid)
-                                .map_err(Error::Arrow)?;
-                            settlementdate_arr.append_value(settlementdate)
-                                .map_err(Error::Arrow)?;
-                            scadavalue_arr.append_value(scadavalue)
-                                .map_err(Error::Arrow)?;
-                        },
-                        _ => {}
-                    }
-                }
-                RecordBatch::try_new(
-                    Arc::new(self.schema().clone()),
-                    vec![
-                        Arc::new(duid_arr.finish()),
-                        Arc::new(settlementdate_arr.finish()),
-                        Arc::new(scadavalue_arr.finish())
-                    ]
-                ).map_err(Error::Arrow)
-            }
-        }
+        flatfile.to_arrow(self.schema())
     }
 
     pub fn to_parquet<P: AsRef<Path>>(&self, flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
@@ -142,8 +89,12 @@ pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(
                 );
                 None
             }))
-            .and_then(|p| reports.get_mut(&p))
-            .map(|v| (*v).push(flatfile));
+            .map(|p| {
+                if let Some(v) = reports.get_mut(&p) {
+                    (*v).push(flatfile);
+                } else {
+                    reports.insert(p, vec![flatfile]);
+                }});
     }
     if reports.len() <= 1 {
         for (p, fs) in reports.into_iter() {
