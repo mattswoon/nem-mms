@@ -731,15 +731,15 @@ mod tests {
                 report_type: "BID".to_string(),
                 report_subtype: "BIDDAYOFFER_D".to_string(),
                 report_version: 2,
-                data: vec![DataValue::DateTime(NaiveDate::from_ymd(2021, 3, 31).and_hms(0, 0, 0)),
-                                     DataValue::String("DUID1".to_string()),
-                                     DataValue::String("ENERGY".to_string()),
-                                     DataValue::DateTime(NaiveDate::from_ymd(2021, 3, 31).and_hms(0, 0, 0)),
-                                     DataValue::DateTime(NaiveDate::from_ymd(2021, 3, 30).and_hms(12, 19, 0)),
-                                     DataValue::Integer(1),
-                                     DataValue::String("PARTICIPANTID1".to_string()),
-                                     DataValue::Integer(241),
-                                     DataValue::String("1054 F PB1 & PB10 LOSS FACTOR".to_string())]
+                data: vec![Some(DataValue::DateTime(NaiveDate::from_ymd(2021, 3, 31).and_hms(0, 0, 0))),
+                           Some(DataValue::String("DUID1".to_string())),
+                           Some(DataValue::String("ENERGY".to_string())),
+                           Some(DataValue::DateTime(NaiveDate::from_ymd(2021, 3, 31).and_hms(0, 0, 0))),
+                           Some(DataValue::DateTime(NaiveDate::from_ymd(2021, 3, 30).and_hms(12, 19, 0))),
+                           Some(DataValue::Integer(1)),
+                           Some(DataValue::String("PARTICIPANTID1".to_string())),
+                           Some(DataValue::Integer(241)),
+                           Some(DataValue::String("1054 F PB1 & PB10 LOSS FACTOR".to_string()))]
             }
         );
         assert_eq!(parsed, expected);
