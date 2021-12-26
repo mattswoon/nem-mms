@@ -41,14 +41,13 @@ Currently we only support parsing files - either individual csv flat files
 for zips of (zips of) csv flat files - the kind obtained from nemweb reports.
 
 ```
-> nem-mms parse [FILE] [PACKAGE]
+> nem-mms parse [FILE]
 ```
 
-The argument `[FILE]` refers to the path to the zip or csv file, while `[PACKAGE]`
-is a string argument indicating the package in the MMS data model. For example
+The argument `[FILE]` refers to the path to the zip or csv file. For example
 
 ```
-> nem-mms parse PUBLIC_DISPATCHSCADA_20211117.zip DISPATCH_UNIT_SCADA
+> nem-mms parse PUBLIC_DISPATCHSCADA_20211117.zip
 ```
 
 # Todo
@@ -58,7 +57,7 @@ data from a local file. However, the intention is to do much more
 
  - [ ] Fetch files from nemweb directly
  - [ ] Sync reports to a local directory (to avoid downloading the same files multiple times)
- - [ ] Infer package (and schema) from the comment record of csv flat files
+ - [x] Infer package (and schema) from the comment record of csv flat files
  - [ ] Add support for packages
     - [x] DISPATCH_UNIT_SCADA
     - [ ] ... more
