@@ -17,7 +17,7 @@ fn main() {
         .author("mattswoon")
         .about("Fetch and parse AEMO's MMS data into parquet")
         .subcommand(SubCommand::with_name("parse")
-                    .about("Parse a flat file csv")
+                    .about("Parse a flat file csv or zip")
                     .arg(Arg::with_name("FILE")
                          .required(true)
                          .takes_value(true)
