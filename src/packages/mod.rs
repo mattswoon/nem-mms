@@ -79,22 +79,22 @@ impl Package {
                             let duid = column_headers.get("DUID")
                                 .and_then(|idx| record.data.get(*idx))
                                 .and_then(|v| v.clone().as_string())
-                                .unwrap(); // TODO
+                                .ok_or(Error::MissingColumnHeader("DUID".to_string()))?;
                             let settlementdate = column_headers.get("SETTLEMENTDATE")
                                 .and_then(|idx| record.data.get(*idx))
                                 .and_then(|v| v.clone().as_datetime())
-                                .unwrap() // TODO
+                                .ok_or(Error::MissingColumnHeader("SETTLEMENTDATE".to_string()))?
                                 .timestamp(); 
                             let scadavalue = column_headers.get("SCADAVALUE")
                                 .and_then(|idx| record.data.get(*idx))
                                 .and_then(|v| v.clone().as_f64())
-                                .unwrap(); // TODO
+                                .ok_or(Error::MissingColumnHeader("SCADAVALUE".to_string()))?;
                             duid_arr.append_value(duid)
-                                .unwrap(); // TODO
+                                .map_err(Error::Arrow)?;
                             settlementdate_arr.append_value(settlementdate)
-                                .unwrap(); // TODO
+                                .map_err(Error::Arrow)?;
                             scadavalue_arr.append_value(scadavalue)
-                                .unwrap(); // TODO
+                                .map_err(Error::Arrow)?;
                         },
                         _ => {}
                     }

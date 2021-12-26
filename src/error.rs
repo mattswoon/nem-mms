@@ -12,6 +12,7 @@ pub enum Error {
     Arrow(arrow::error::ArrowError),
     Parquet(parquet::errors::ParquetError),
     InvalidFilename(std::path::PathBuf),
+    MissingColumnHeader(String),
 }
 
 #[derive(Debug)]
