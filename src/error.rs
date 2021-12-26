@@ -6,7 +6,9 @@ pub enum Error {
     ParseDateError(ParseErrorDetails<chrono::format::ParseError>),
     ParseTimeError(ParseErrorDetails<chrono::format::ParseError>),
     ParseIntError(ParseErrorDetails<std::num::ParseIntError>),
-    Csv(csv::Error)
+    Csv(csv::Error),
+    Io(std::io::Error),
+    Zip(zip::result::ZipError),
 }
 
 #[derive(Debug)]

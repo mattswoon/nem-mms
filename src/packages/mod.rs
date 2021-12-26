@@ -98,7 +98,7 @@ impl Package {
         }
     }
 
-    pub fn to_parquet<P: AsRef<Path>>(&self, flatfile: FlatFile, path: P) -> Result<(), Error> {
+    pub fn to_parquet<P: AsRef<Path>>(&self, flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
         let schema = Arc::new(self.schema().clone());
         let file = OpenOptions::new()
             .write(true)
@@ -108,8 +108,10 @@ impl Package {
         let props = WriterProperties::builder().build();
         let mut writer = ArrowWriter::try_new(file, schema, Some(props))
             .map_err(Error::Parquet)?;
-        let batch = self.to_arrow(flatfile)?;
-        writer.write(&batch).map_err(Error::Parquet)?;
+        for flatfile in flatfiles {
+            let batch = self.to_arrow(flatfile)?;
+            writer.write(&batch).map_err(Error::Parquet)?;
+        }
         writer.close().map_err(Error::Parquet)?;
         Ok(())
     }

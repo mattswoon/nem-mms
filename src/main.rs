@@ -1,8 +1,13 @@
 use clap::{Arg, App, SubCommand, crate_version};
 use csv::ReaderBuilder;
+use zip::read::ZipArchive;
 use nem_mms::{
     flatfile::FlatFile,
-    packages::Package
+    packages::Package,
+    zip::read_zip,
+};
+use std::{
+    fs::OpenOptions,
 };
 
 
@@ -27,18 +32,33 @@ fn main() {
         ("parse", Some(sub_m)) => {
             let fname = sub_m.value_of("FILE")
                 .expect("Expected a file");
+            let fname = std::path::Path::new(&fname);
             let out = std::path::Path::new(&fname)
                 .with_extension("parquet");
-            let rdr = ReaderBuilder::new()
-                .flexible(true)
-                .has_headers(false)
-                .from_path(fname)
-                .expect("Couldn't make reader");
-            let flatfile = FlatFile::read_csv(rdr).unwrap();
             let package = sub_m.value_of("PACKAGE")
                 .expect("Expected a package");
-            let record_batch = match package {
-                "DISPATCH_UNIT_SCADA" => Package::DispatchUnitScada.to_parquet(flatfile, out).unwrap(),
+            let parsed_flatfiles = match fname.extension().map(|s| s.to_str()).flatten() {
+                Some("csv") | Some("CSV") => {
+                    let rdr = ReaderBuilder::new()
+                        .flexible(true)
+                        .has_headers(false)
+                        .from_path(fname)
+                        .expect("Couldn't make reader");
+                    let flatfile = FlatFile::read_csv(rdr).unwrap();
+                    vec![flatfile]
+                },
+                Some("zip") | Some("ZIP") => {
+                    let file = OpenOptions::new()
+                        .read(true)
+                        .open(fname)
+                        .unwrap();
+                    let archive = ZipArchive::new(file).unwrap();
+                    read_zip(archive).unwrap()
+                },
+                _ => vec![]
+            };
+            match package {
+                "DISPATCH_UNIT_SCADA" => Package::DispatchUnitScada.to_parquet(parsed_flatfiles, out).unwrap(),
                 _ => panic!("nope")
             };
         },
