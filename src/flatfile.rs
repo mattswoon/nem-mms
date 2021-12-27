@@ -22,6 +22,7 @@ use arrow::{
     },
     record_batch::RecordBatch,
 };
+use rayon::prelude::*;
 use crate::error::{
     Error,
     BadPayloadDetails,
@@ -34,6 +35,8 @@ pub struct FlatFile(Vec<Record>);
 impl FlatFile {
     pub fn read_csv<R: std::io::Read>(rdr: csv::Reader<R>) -> Result<FlatFile, Error> {
         let records = rdr.into_records()
+            .collect::<Vec<_>>()
+            .into_par_iter()
             .map(|r| r.map_err(Error::Csv).and_then(Record::from_csv_record))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(FlatFile(records))
