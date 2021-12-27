@@ -1,7 +1,6 @@
 use scraper::{Html, Selector};
 use reqwest::blocking::get;
 use std::{
-    io::Write,
     path::Path,
     fs::OpenOptions,
 };
@@ -42,7 +41,7 @@ impl Archive {
     }
 }
 
-const BASE_URL: &'static str = "https://www.nemweb.com.au/Reports";
+const BASE_URL: &'static str = "https://www.nemweb.com.au";
 
 #[derive(Debug)]
 pub struct NemwebScraper {
@@ -54,7 +53,7 @@ impl NemwebScraper {
     fn fetch_html_document(&self) -> Result<Html, Error> {
         let url = package_url_part(&self.package)
             .ok_or(Error::UnsupportedFetchReport(self.package.clone()))
-            .map(|p| format!("{}/{}/{}", BASE_URL, self.archive.url_part(), p))?;
+            .map(|p| format!("{}/Reports/{}/{}", BASE_URL, self.archive.url_part(), p))?;
         let document = get(url)
             .map_err(Error::Reqwest)?
             .text()
@@ -78,27 +77,45 @@ impl NemwebScraper {
         let document = self.fetch_html_document()?;
         let zip_urls = self.find_all_urls(&document)?;
         for url in zip_urls {
-            println!("Fetching {}", &url);
+            print!("Fetching {} ... ", &url);
             let fname = url.split('/').last()
                 .ok_or(Error::ZipUrlNoFilename(url.to_string()))?;
             let target_path = path.as_ref().join(fname);
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(target_path)
-                .map_err(Error::Io)?;
             let full_url = format!("{}{}", BASE_URL, url);
-            download_file(&full_url, &mut file)?;
+            download_file(&full_url, target_path)
+                .map(|b| print!(" success ({} bytes)\n", b))
+                .or_else(|e| {
+                    print!(" failed\n");
+                    match e {
+                        Error::FailedToDownload { url, path, status } => {
+                            eprintln!("Failed to download {} to {:#?}. Got status {}", url, path.as_os_str(), status);
+                            Ok(())
+                        },
+                        _ => Err(e)
+                }})?;
         }
         Ok(())
     }
 }
 
-fn download_file<W: Write>(url: &str, wtr: &mut W) -> Result<u64, Error> {
-    get(url)
-        .map_err(Error::Reqwest)?
-        .copy_to(wtr)
-        .map_err(Error::Reqwest)
+fn download_file<P: AsRef<Path>>(url: &str, path: P) -> Result<u64, Error> {
+    let mut response = get(url)
+        .map_err(Error::Reqwest)?;
+    if response.status().is_success() {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(Error::Io)?;
+        response.copy_to(&mut file)
+            .map_err(Error::Reqwest)
+    } else {
+        Err(Error::FailedToDownload { 
+            url: url.to_string(), 
+            path: path.as_ref().to_path_buf(),
+            status: response.status(),
+        })
+    }
 }
 
 #[cfg(test)]
