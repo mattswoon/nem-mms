@@ -49,7 +49,6 @@ fn main() {
             let path = sub_m.value_of("PATH")
                 .expect("Expected a path");
             let path = std::path::Path::new(&path);
-            dbg!(&path);
             let parsed_flatfiles = parse_flatfiles(&path).unwrap();
             let out = std::path::Path::new(&path)
                 .with_extension("parquet");
@@ -73,7 +72,6 @@ fn main() {
 }
 
 fn parse_flatfiles<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Vec<FlatFile>, Error> {
-    dbg!(&path);
     let parsed_flatfiles = match path.as_ref().extension().map(|s| s.to_str()).flatten() {
         Some("csv") | Some("CSV") => {
             let rdr = ReaderBuilder::new()

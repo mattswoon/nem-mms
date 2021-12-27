@@ -22,6 +22,7 @@ pub enum Error {
     Reqwest(reqwest::Error),
     ScraperError,
     ZipUrlNoFilename(String),
+    FailedToDownload { url: String, path: std::path::PathBuf, status: reqwest::StatusCode },
 }
 
 #[derive(Debug)]
