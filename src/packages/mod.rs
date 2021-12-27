@@ -1,4 +1,6 @@
 pub mod schema;
+pub mod fetch;
+
 use crate::{
     error::Error,
     flatfile::{
@@ -30,6 +32,22 @@ pub enum Package {
 }
 
 impl Package {
+    pub fn available_packages() -> [&'static str; 2] {
+        use Package::*;
+        [DispatchUnitScada.as_str(),
+         DispatchNegativeResidue.as_str()]
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        use Package::*;
+        match s {
+             "DISPATCH_UNIT_SCADA"       => Some(DispatchUnitScada),
+             "DISPATCH_NEGATIVE_RESIDUE" => Some(DispatchNegativeResidue),
+             "DISPATCH_LOCAL_PRICE"      => Some(DispatchLocalPrice),
+             _ => None
+        }
+    }
+
     pub fn as_str(&self) -> &'_ str {
         use Package::*;
         match self {

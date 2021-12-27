@@ -18,6 +18,10 @@ pub enum Error {
     UnsupportedDataType(arrow::datatypes::DataType),
     MissingInformationRecord,
     NullError,
+    UnsupportedFetchReport(crate::packages::Package),
+    Reqwest(reqwest::Error),
+    ScraperError,
+    ZipUrlNoFilename(String),
 }
 
 #[derive(Debug)]

@@ -8,6 +8,7 @@ use nem_mms::{
 };
 use std::{
     fs::OpenOptions,
+    path::Path,
 };
 
 
@@ -22,6 +23,24 @@ fn main() {
                          .required(true)
                          .takes_value(true)
                          .index(1)))
+        .subcommand(SubCommand::with_name("fetch")
+                    .about("Fetch MMS files from Nemweb")
+                    .arg(Arg::with_name("PACKAGE")
+                         .help("Report type to download")
+                         .required(true)
+                         .takes_value(true)
+                         .possible_values(&packages::Package::available_packages()))
+                    .arg(Arg::with_name("ARCHIVE")
+                         .help("Which archive to download from")
+                         .takes_value(true)
+                         .required(true)
+                         .possible_values(&["current", "archive"])
+                         .default_value("current"))
+                    .arg(Arg::with_name("DIR")
+                         .help("Directory to download files to")
+                         .required(true)
+                         .takes_value(true)
+                         .default_value(".")))
         .get_matches();
 
     match matches.subcommand() {
@@ -53,6 +72,19 @@ fn main() {
                 .with_extension("parquet");
             packages::to_parquet(parsed_flatfiles, out).unwrap();
         },
+        ("fetch", Some(sub_m)) => {
+            let package = sub_m.value_of("PACKAGE")
+                .and_then(packages::Package::from_str)
+                .expect("Not a valid package");
+            let dir = sub_m.value_of("DIR")
+                .map(Path::new)
+                .expect("No directory provided");
+            let archive = sub_m.value_of("ARCHIVE")
+                .and_then(packages::fetch::Archive::from_str)
+                .expect("Couldn't determine archive");
+            let scraper = packages::fetch::NemwebScraper { package, archive };
+            scraper.download_all(dir).unwrap();
+        }
         _ => {}
     }
 }
