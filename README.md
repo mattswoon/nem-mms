@@ -21,7 +21,7 @@ Help can be sought in the usual fashion
 ```
 > nem-mms help
 
-nem-mms 0.1.0
+nem-mms 0.1.1
 mattswoon
 Fetch and parse AEMO's MMS data into parquet
 
@@ -33,11 +33,30 @@ FLAGS:
     -V, --version    Prints version information
 
 SUBCOMMANDS:
+    fetch    Fetch MMS files from Nemweb
     help     Prints this message or the help of the given subcommand(s)
     parse    Parse a flat file csv or zip
 ```
 
-Currently we only support parsing files - either individual csv flat files
+## Parsing files
+
+```
+> nem-mms parse --help
+
+nem-mms-parse
+Parse a flat file csv or zip
+
+USAGE:
+    nem-mms parse <FILE>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+ARGS:
+    <FILE>
+```
+We can parse either individual csv flat files
 for zips of (zips of) csv flat files - the kind obtained from nemweb reports.
 
 ```
@@ -48,6 +67,41 @@ The argument `[FILE]` refers to the path to the zip or csv file. For example
 
 ```
 > nem-mms parse PUBLIC_DISPATCHSCADA_20211117.zip
+```
+
+The report type and subtype are determined from the flat file, but only some reports are currently
+supported.
+
+## Fetching files
+
+```
+> nem-mms fetch --help
+
+nem-mms-fetch
+Fetch MMS files from Nemweb
+
+USAGE:
+    nem-mms fetch <PACKAGE> <ARCHIVE> <DIR>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+ARGS:
+    <PACKAGE>    Report type to download [possible values: DISPATCH_UNIT_S
+CADA, DISPATCH_NEGATIVE_RESIDUE]
+    <ARCHIVE>    Which archive to download from [default: current]  [possi
+ble values: current, archive]
+    <DIR>        Directory to download files to [default: .]
+```
+
+We can fetch supported reports from nemweb, either from the "Current" or "Archive"
+depositories.
+
+This operation will download all files on the relevant page.
+
+```
+> nem-mms fetch DISPATCH_UNIT_SCADA current ./downloaded_files/
 ```
 
 # Todo
