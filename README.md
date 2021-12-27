@@ -10,8 +10,8 @@ There are no releases yet, so you'll need to build it from source.
 With [rustup](https://www.rust-lang.org/tools/install) installed, run
 
 ```
-> git clone _
-> cargo install --path=./_
+> git clone
+> cargo install --path=.
 ```
 
 # Usage
