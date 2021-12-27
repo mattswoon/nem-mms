@@ -55,9 +55,12 @@ The argument `[FILE]` refers to the path to the zip or csv file. For example
 This tool is under development and currently only supports parsing DISPATCH_UNIT_SCADA
 data from a local file. However, the intention is to do much more
 
- - [ ] Fetch files from nemweb directly
+ - [x] Fetch files from nemweb directly
+    - [ ] Fetch files matching particular datetimes
  - [ ] Sync reports to a local directory (to avoid downloading the same files multiple times)
  - [x] Infer package (and schema) from the comment record of csv flat files
+ - [ ] Parse whole directories of nemweb zips
+ - [ ] Keep a manifest of downloaded/parsed files
  - [ ] Add support for packages
     - [x] DISPATCH_UNIT_SCADA
     - [x] DISPATCH_NEGATIVE_RESIDUE
