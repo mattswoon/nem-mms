@@ -35,13 +35,25 @@ fn main() {
                          .help("Which archive to download from")
                          .takes_value(true)
                          .required(true)
-                         .possible_values(&["current", "archive"])
+                         .possible_values(&["current", "archive", "historic"])
                          .default_value("current"))
                     .arg(Arg::with_name("DIR")
                          .help("Directory to download files to")
                          .required(true)
                          .takes_value(true)
-                         .default_value(".")))
+                         .default_value("."))
+                    .arg(Arg::with_name("year")
+                         .short("y")
+                         .help("Year to get historic data for, only used if ARCHIVE=historic")
+                         .required_if("ARCHIVE", "historic")
+                         .takes_value(true)
+                         .default_value("2009"))
+                    .arg(Arg::with_name("month")
+                         .short("m")
+                         .help("Month to get historic data for, only used if ARCHIVE=historic")
+                         .required_if("ARCHIVE", "historic")
+                         .takes_value(true)
+                         .default_value("07")))
         .get_matches();
 
     match matches.subcommand() {
@@ -62,10 +74,26 @@ fn main() {
                 .map(Path::new)
                 .expect("No directory provided");
             let archive = sub_m.value_of("ARCHIVE")
-                .and_then(packages::fetch::Archive::from_str)
                 .expect("Couldn't determine archive");
-            let scraper = packages::fetch::NemwebScraper { package, archive };
-            scraper.download_all(dir).unwrap();
+            match archive {
+                "current" => {
+                    let archive = packages::fetch::Archive::Current;
+                    let scraper = packages::fetch::NemwebScraper { package, archive };
+                    scraper.download_all(dir).unwrap();
+                },
+                "archive" => {
+                    let archive = packages::fetch::Archive::Archive;
+                    let scraper = packages::fetch::NemwebScraper { package, archive };
+                    scraper.download_all(dir).unwrap();
+                },
+                "historic" => {
+                    let year = sub_m.value_of("year").expect("Year required").to_string();
+                    let month = sub_m.value_of("month").expect("Month required").to_string();
+                    packages::fetch::HistoricDataDownloader { package, year, month }
+                        .download(dir).unwrap();
+                },
+                _ => panic!("Invalid ARCHIVE")
+            }
         }
         _ => {}
     }

@@ -21,7 +21,7 @@ Help can be sought in the usual fashion
 ```
 > nem-mms help
 
-nem-mms 0.1.1
+nem-mms 0.1.2
 mattswoon
 Fetch and parse AEMO's MMS data into parquet
 
@@ -81,17 +81,19 @@ nem-mms-fetch
 Fetch MMS files from Nemweb
 
 USAGE:
-    nem-mms fetch <PACKAGE> <ARCHIVE> <DIR>
+    nem-mms fetch [OPTIONS] <PACKAGE> <ARCHIVE> <DIR>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
+OPTIONS:
+    -m <month>        Month to get historic data for, only used if ARCHIVE=historic [default: 07]
+    -y <year>         Year to get historic data for, only used if ARCHIVE=historic [default: 2009]
+
 ARGS:
-    <PACKAGE>    Report type to download [possible values: DISPATCH_UNIT_S
-CADA, DISPATCH_NEGATIVE_RESIDUE]
-    <ARCHIVE>    Which archive to download from [default: current]  [possi
-ble values: current, archive]
+    <PACKAGE>    Report type to download [possible values: DISPATCH_UNIT_SCADA, DISPATCH_NEGATIVE_RESIDUE]
+    <ARCHIVE>    Which archive to download from [default: current]  [possible values: current, archive, historic]
     <DIR>        Directory to download files to [default: .]
 ```
 

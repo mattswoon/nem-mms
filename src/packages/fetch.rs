@@ -1,6 +1,7 @@
 use scraper::{Html, Selector};
 use reqwest::blocking::get;
 use std::{
+    io::{Write, stdout},
     path::Path,
     fs::OpenOptions,
 };
@@ -17,6 +18,51 @@ fn package_url_part(package: &Package) -> Option<&'_ str> {
         DispatchLocalPrice => None,
     }
 }
+
+#[derive(Debug)]
+pub struct HistoricDataDownloader {
+    pub package: Package,
+    pub year: String,
+    pub month: String,
+}
+
+impl HistoricDataDownloader {
+    fn url(&self) -> Option<String> {
+        use Package::*;
+        let filename = match &self.package {
+            DispatchUnitScada => Some(format!("PUBLIC_DVD_DISPATCH_UNIT_SCADA_{}{}010000.zip", &self.year, &self.month)),
+            DispatchNegativeResidue => None,
+            DispatchLocalPrice => None
+        }?;
+        let url = format!("Data_Archive/Wholesale_Electricity/MMSDM/{}/MMSDM_{}_{}/MMSDM_Historical_Data_SQLLoader/DATA/{}", &self.year, &self.year, &self.month, filename);
+        Some(url)
+    }
+
+    pub fn download<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+        let url = self.url()
+            .map(|u| format!("{}/{}", BASE_URL, u))
+            .ok_or(Error::UnsupportedFetchReport(self.package.clone()))?;
+        print!("Fetching {} ... ", &url);
+        stdout().flush().map_err(Error::Io)?;
+        let fname = url.split('/')
+            .last()
+            .ok_or(Error::ZipUrlNoFilename(url.to_string()))?;
+        let path = path.as_ref().join(fname);
+        download_file(&url, path)
+            .map(|b| print!(" success ({} bytes)\n", b))
+            .or_else(|e| {
+                print!(" failed\n");
+                match e {
+                    Error::FailedToDownload { url, path, status } => {
+                        eprintln!("Failed to download {} to {:#?}. Got status {}", url, path.as_os_str(), status);
+                        Ok(())
+                    },
+                    _ => Err(e)
+            }})?;
+        Ok(())
+    }
+}
+
 
 #[derive(Debug)]
 pub enum Archive  {
@@ -78,6 +124,7 @@ impl NemwebScraper {
         let zip_urls = self.find_all_urls(&document)?;
         for url in zip_urls {
             print!("Fetching {} ... ", &url);
+            stdout().flush().map_err(Error::Io)?;
             let fname = url.split('/').last()
                 .ok_or(Error::ZipUrlNoFilename(url.to_string()))?;
             let target_path = path.as_ref().join(fname);
