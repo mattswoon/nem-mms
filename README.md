@@ -113,7 +113,7 @@ data from a local file. However, the intention is to do much more
     - [ ] Fetch files matching particular datetimes
  - [ ] Sync reports to a local directory (to avoid downloading the same files multiple times)
  - [x] Infer package (and schema) from the comment record of csv flat files
- - [ ] Parse whole directories of nemweb zips
+ - [x] Parse whole directories of nemweb zips
  - [ ] Keep a manifest of downloaded/parsed files
  - [ ] Add support for packages
     - [x] DISPATCH_UNIT_SCADA

@@ -5,6 +5,7 @@ use nem_mms::{
     flatfile::FlatFile,
     packages,
     zip::read_zip,
+    error::Error,
 };
 use std::{
     fs::OpenOptions,
@@ -19,7 +20,7 @@ fn main() {
         .about("Fetch and parse AEMO's MMS data into parquet")
         .subcommand(SubCommand::with_name("parse")
                     .about("Parse a flat file csv or zip")
-                    .arg(Arg::with_name("FILE")
+                    .arg(Arg::with_name("PATH")
                          .required(true)
                          .takes_value(true)
                          .index(1)))
@@ -45,30 +46,12 @@ fn main() {
 
     match matches.subcommand() {
         ("parse", Some(sub_m)) => {
-            let fname = sub_m.value_of("FILE")
-                .expect("Expected a file");
-            let fname = std::path::Path::new(&fname);
-            let parsed_flatfiles = match fname.extension().map(|s| s.to_str()).flatten() {
-                Some("csv") | Some("CSV") => {
-                    let rdr = ReaderBuilder::new()
-                        .flexible(true)
-                        .has_headers(false)
-                        .from_path(fname)
-                        .expect("Couldn't make reader");
-                    let flatfile = FlatFile::read_csv(rdr).unwrap();
-                    vec![flatfile]
-                },
-                Some("zip") | Some("ZIP") => {
-                    let file = OpenOptions::new()
-                        .read(true)
-                        .open(fname)
-                        .unwrap();
-                    let archive = ZipArchive::new(file).unwrap();
-                    read_zip(archive).unwrap()
-                },
-                _ => vec![]
-            };
-            let out = std::path::Path::new(&fname)
+            let path = sub_m.value_of("PATH")
+                .expect("Expected a path");
+            let path = std::path::Path::new(&path);
+            dbg!(&path);
+            let parsed_flatfiles = parse_flatfiles(&path).unwrap();
+            let out = std::path::Path::new(&path)
                 .with_extension("parquet");
             packages::to_parquet(parsed_flatfiles, out).unwrap();
         },
@@ -87,4 +70,39 @@ fn main() {
         }
         _ => {}
     }
+}
+
+fn parse_flatfiles<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Vec<FlatFile>, Error> {
+    dbg!(&path);
+    let parsed_flatfiles = match path.as_ref().extension().map(|s| s.to_str()).flatten() {
+        Some("csv") | Some("CSV") => {
+            let rdr = ReaderBuilder::new()
+                .flexible(true)
+                .has_headers(false)
+                .from_path(path)
+                .expect("Couldn't make reader");
+            let flatfile = FlatFile::read_csv(rdr)?;
+            vec![flatfile]
+        },
+        Some("zip") | Some("ZIP") => {
+            let file = OpenOptions::new()
+                .read(true)
+                .open(path)
+                .map_err(Error::Io)?;
+            let archive = ZipArchive::new(file)
+                .map_err(Error::Zip)?;
+            read_zip(archive)?
+        },
+        _ if path.as_ref().is_dir() => {
+            let mut flatfiles = Vec::new();
+            for sub_path in path.as_ref().read_dir().map_err(Error::Io)? {
+                let mut to_append = sub_path.map_err(Error::Io)
+                    .and_then(|d| parse_flatfiles(d.path()))?;
+                flatfiles.append(&mut to_append);
+            }
+            flatfiles
+        },
+        _ => vec![]
+    };
+    Ok(parsed_flatfiles)
 }
