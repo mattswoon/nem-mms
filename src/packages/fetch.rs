@@ -27,7 +27,15 @@ pub struct HistoricDataDownloader {
 }
 
 impl HistoricDataDownloader {
-    fn url(&self) -> Option<String> {
+    pub fn new(package: Package) -> Self {
+        HistoricDataDownloader {
+            package,
+            year: "2009".to_string(),
+            month: "07".to_string(),
+        }
+    }
+
+    pub fn url(&self) -> Option<String> {
         use Package::*;
         let filename = match &self.package {
             DispatchUnitScada => Some(format!("PUBLIC_DVD_DISPATCH_UNIT_SCADA_{}{}010000.zip", &self.year, &self.month)),
@@ -96,10 +104,19 @@ pub struct NemwebScraper {
 }
 
 impl NemwebScraper {
+    pub fn new(package: Package, archive: Archive) -> Self {
+        NemwebScraper { package, archive }
+    }
+
+    pub fn url(&self) -> Option<String> {
+        package_url_part(&self.package)
+            .map(|p| format!("Reports/{}/{}", self.archive.url_part(), p))
+    }
+
     fn fetch_html_document(&self) -> Result<Html, Error> {
-        let url = package_url_part(&self.package)
-            .ok_or(Error::UnsupportedFetchReport(self.package.clone()))
-            .map(|p| format!("{}/Reports/{}/{}", BASE_URL, self.archive.url_part(), p))?;
+        let url = self.url()
+            .map(|u| format!("{}/{}", BASE_URL, u))
+            .ok_or(Error::UnsupportedFetchReport(self.package.clone()))?;
         let document = get(url)
             .map_err(Error::Reqwest)?
             .text()

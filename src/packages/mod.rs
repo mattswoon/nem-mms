@@ -6,11 +6,17 @@ use crate::{
     flatfile::{
         FlatFile,
         InformationRecord,
-    }
+    },
+    packages::fetch::{
+        HistoricDataDownloader,
+        NemwebScraper,
+        Archive,
+    },
 };
 use arrow::{
     record_batch::RecordBatch,
 };
+use colored::Colorize;
 use parquet::{
     file::properties::WriterProperties,
     arrow::arrow_writer::ArrowWriter,
@@ -21,10 +27,11 @@ use std::{
     path::Path,
     sync::Arc,
     collections::HashMap,
+    fmt::{Display, self},
 };
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Package {
     DispatchUnitScada,
     DispatchNegativeResidue,
@@ -32,10 +39,11 @@ pub enum Package {
 }
 
 impl Package {
-    pub fn available_packages() -> [&'static str; 2] {
+    pub fn available_packages() -> [&'static str; 3] {
         use Package::*;
         [DispatchUnitScada.as_str(),
-         DispatchNegativeResidue.as_str()]
+         DispatchNegativeResidue.as_str(),
+         DispatchLocalPrice.as_str()]
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
@@ -99,6 +107,53 @@ impl Package {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PackageInfo {
+    name: String,
+    schema: &'static arrow::datatypes::Schema,
+    supports_fetch_current: bool,
+    supports_fetch_archive: bool,
+    supports_fetch_historic: bool,
+}
+
+impl PackageInfo {
+    pub fn new(package: Package) -> Self {
+        let name = package.as_str().to_string();
+        let schema = package.schema();
+        let supports_fetch_historic = HistoricDataDownloader::new(package).url().is_some();
+        let supports_fetch_current = NemwebScraper::new(package, Archive::Current).url().is_some();
+        let supports_fetch_archive = NemwebScraper::new(package, Archive::Archive).url().is_some();
+        PackageInfo { name, schema, supports_fetch_current, supports_fetch_archive, supports_fetch_historic }
+    }
+}
+
+impl Display for PackageInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Pacakge name: {}\n", self.name)?;
+        write!(f, "Supported fetch operations:\n")?;
+        if self.supports_fetch_current {
+            write!(f, "{}", "\t✓ Current\n".green())?;
+        } else {
+            write!(f, "{}", "\t✗ Current\n".red())?;
+        }
+        if self.supports_fetch_archive {
+            write!(f, "{}", "\t✓ Archive\n".green())?;
+        } else {
+            write!(f, "{}", "\t✗ Archive\n".red())?;
+        }
+        if self.supports_fetch_historic {
+            write!(f, "{}", "\t✓ Historic\n".green())?;
+        } else {
+            write!(f, "{}", "\t✗ Historic\n".red())?;
+        }
+        write!(f, "Schema: \n")?;
+        for field in self.schema.fields() {
+            write!(f, "\t{}\n", field)?;
+        }
+        Ok(())
+    }
+}
+
 pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
     let mut reports: HashMap<Package, Vec<FlatFile>> = HashMap::new();
     for flatfile in flatfiles {
@@ -137,3 +192,4 @@ pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(
     }
     Ok(())
 }
+
