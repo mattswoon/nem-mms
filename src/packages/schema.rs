@@ -7,25 +7,6 @@ use arrow::datatypes::{
 use lazy_static::lazy_static;
 
 lazy_static! {
-//    static ref CONTRACTAGC: Schema = Schema::new(
-//        vec![
-//            Field::new("CONTRACTID", DataType::Utf8, false),
-//            Field::new("VERSIONNO", DataType::Int8, false),
-//            Field::new("STARTDATE", DataType::Date32, false),
-//            Field::new("ENDDATE", DataType::Date32, false),
-//            Field::new("PARTICIPANTID", DataType::Utf8, false),
-//            Field::new("DUID", DataType::Utf8, false),
-//            Field::new("CRR", DataType::Int16, false),
-//            Field::new("CRL", DataType::Int16, false),
-//            Field::new("RLPRICE", DataType::Float32, false),
-//            Field::new("CCPRICE", DataType::Float32, false),
-//            Field::new("BS", DataType::Float32, false),
-//            Field::new("AUTHORISEDBY", DataType::Utf8, false),
-//            Field::new("AUTHORISEDDATE", DataType::Date32, false),
-//            Field::new("LASTCHANGED", DataType::Date32, false)
-//        ]
-//    );
-
     pub static ref DISPATCH_UNIT_SCADA: Schema = Schema::new(
         vec![
             Field::new("DUID", DataType::Utf8, false),
@@ -60,6 +41,17 @@ lazy_static! {
             Field::new("DUID", DataType::Utf8, false),
             Field::new("LOCAL_PRICE_ADJUSTMENT", DataType::Float64, true),
             Field::new("LOCALLY_CONSTRAINED", DataType::Int8, true)
+        ]
+    );
+
+    pub static ref ROOFTOP_PV_ACTUAL: Schema = Schema::new(
+        vec![
+            Field::new("INTERVAL_DATETIME", DataType::Timestamp(TimeUnit::Second, None), false),
+            Field::new("TYPE", DataType::Utf8, false),
+            Field::new("REGIONID", DataType::Utf8, false),
+            Field::new("POWER", DataType::Float64, true),
+            Field::new("QI", DataType::Float64, true),
+            Field::new("LASTCHANGED", DataType::Timestamp(TimeUnit::Second, None), true)
         ]
     );
 }
