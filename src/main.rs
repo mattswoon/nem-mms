@@ -94,9 +94,11 @@ fn main() {
                     scraper.download_all(dir).unwrap();
                 },
                 "historic" => {
-                    let year = sub_m.value_of("year").expect("Year required").to_string();
-                    let month = sub_m.value_of("month").expect("Month required").to_string();
-                    packages::fetch::HistoricDataDownloader { package, year, month }
+                    let year = sub_m.value_of("year").expect("Year required");
+                    let month = sub_m.value_of("month").expect("Month required");
+                    packages::fetch::HistoricDataDownloader::new(package)
+                        .with_year(year).unwrap()
+                        .with_month(month).unwrap()
                         .download(dir).unwrap();
                 },
                 _ => panic!("Invalid ARCHIVE")

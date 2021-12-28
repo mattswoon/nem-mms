@@ -21,30 +21,122 @@ fn package_url_part(package: &Package) -> Option<&'_ str> {
 }
 
 #[derive(Debug)]
+pub enum Month {
+    Jan,
+    Feb,
+    Mar,
+    Apr,
+    May,
+    Jun,
+    Jul,
+    Aug,
+    Sep,
+    Oct,
+    Nov,
+    Dec
+}
+
+impl Month {
+    pub fn from_str(s: &str) -> Option<Month> {
+        use Month::*;
+        match s {
+            "01" => Some(Jan),
+            "02" => Some(Feb),
+            "03" => Some(Mar),
+            "04" => Some(Apr),
+            "05" => Some(May),
+            "06" => Some(Jun),
+            "07" => Some(Jul),
+            "08" => Some(Aug),
+            "09" => Some(Sep),
+            "10" => Some(Oct),
+            "11" => Some(Nov),
+            "12" => Some(Dec),
+            _ => None
+        }
+    }
+
+    pub fn as_str(&self) -> &'_ str {
+        use Month::*;
+        match self {
+            Jan => "01",
+            Feb => "02",
+            Mar => "03",
+            Apr => "04",
+            May => "05",
+            Jun => "06",
+            Jul => "07",
+            Aug => "08",
+            Sep => "09",
+            Oct => "10",
+            Nov => "11",
+            Dec => "12"
+        }
+    }
+
+    fn default() -> Self {
+        Month::Jul
+    }
+}
+
+#[derive(Debug)]
+pub struct Year(String);
+
+impl Year {
+    pub fn from_str(s: &str) -> Option<Year> {
+        match s.chars().collect::<Vec<char>>().as_slice() {
+            [a, b, c, d] if a.is_ascii_digit() & b.is_ascii_digit() & c.is_ascii_digit() & d.is_ascii_digit() => Some(Year(s.to_string())),
+            [a, b] if a.is_ascii_digit() & b.is_ascii_digit() => Some(Year(format!("20{}{}", a, b))),
+            _ => None
+        }
+    }
+
+    pub fn as_str(&self) -> &'_ str {
+        &self.0
+    }
+
+    fn default() -> Self {
+        Year("2009".to_string())
+    }
+}
+
+#[derive(Debug)]
 pub struct HistoricDataDownloader {
     pub package: Package,
-    pub year: String,
-    pub month: String,
+    pub year: Year,
+    pub month: Month,
 }
 
 impl HistoricDataDownloader {
     pub fn new(package: Package) -> Self {
         HistoricDataDownloader {
             package,
-            year: "2009".to_string(),
-            month: "07".to_string(),
+            year: Year::default(),
+            month: Month::default()
         }
+    }
+
+    pub fn with_year(self, year: &str) -> Result<Self, Error> {
+        let year = Year::from_str(year)
+            .ok_or(Error::InvalidYear(year.to_string()))?;
+        Ok(HistoricDataDownloader { year, ..self })
+    }
+
+    pub fn with_month(self, month: &str) -> Result<Self, Error> {
+        let month = Month::from_str(month)
+            .ok_or(Error::InvalidMonth(month.to_string()))?;
+        Ok(HistoricDataDownloader { month, ..self })
     }
 
     pub fn url(&self) -> Option<String> {
         use Package::*;
         let filename = match &self.package {
-            DispatchUnitScada => Some(format!("PUBLIC_DVD_DISPATCH_UNIT_SCADA_{}{}010000.zip", &self.year, &self.month)),
+            DispatchUnitScada => Some(format!("PUBLIC_DVD_DISPATCH_UNIT_SCADA_{}{}010000.zip", &self.year.as_str(), &self.month.as_str())),
             DispatchNegativeResidue => None,
             DispatchLocalPrice => None,
-            RooftopPvActual => Some(format!("PUBLIC_DVD_ROOFTOP_PV_ACTUAL_{}{}010000.zip", &self.year, &self.month))
+            RooftopPvActual => Some(format!("PUBLIC_DVD_ROOFTOP_PV_ACTUAL_{}{}010000.zip", &self.year.as_str(), &self.month.as_str()))
         }?;
-        let url = format!("Data_Archive/Wholesale_Electricity/MMSDM/{}/MMSDM_{}_{}/MMSDM_Historical_Data_SQLLoader/DATA/{}", &self.year, &self.year, &self.month, filename);
+        let url = format!("Data_Archive/Wholesale_Electricity/MMSDM/{}/MMSDM_{}_{}/MMSDM_Historical_Data_SQLLoader/DATA/{}", &self.year.as_str(), &self.year.as_str(), &self.month.as_str(), filename);
         Some(url)
     }
 
