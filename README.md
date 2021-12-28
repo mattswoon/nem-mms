@@ -169,6 +169,7 @@ data from a local file. However, the intention is to do much more
     - [x] DISPATCH_UNIT_SCADA
     - [x] DISPATCH_NEGATIVE_RESIDUE
     - [x] DISPATCH_LOCAL_PRICE
+    - [x] ROOFTOP_PV_ACTUAL
     - [ ] ... more
 
 # Contributing
