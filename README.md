@@ -116,42 +116,44 @@ Fetch operations are coloured green or red on supported terminals.
 
 ```
 > nem-mms DISPATCH_UNIT_SCADA
-
 Pacakge name: DISPATCH_UNIT_SCADA
 Supported fetch operations:
-        ✓ Current
-        ✓ Archive
-        ✓ Historic
+    ✓ Current
+    ✓ Archive
+    ✓ Historic
 Schema:
-        Field { name: "DUID", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "SETTLEMENTDATE", data_type: Timestamp(Second, None), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "SCADAVALUE", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+     Name            Data type                Nullable
+    ----------------------------------------------------
+     DUID            Utf8                     ✗
+     SETTLEMENTDATE  Timestamp(Second, None)  ✗
+     SCADAVALUE      Float64                  ✓
 ```
 
 ```
 > nem-mms info DISPATCH_NEGATIVE_RESIDUE
-
 Pacakge name: DISPATCH_NEGATIVE_RESIDUE
 Supported fetch operations:
-        ✓ Current
-        ✓ Archive
-        ✗ Historic
+    ✓ Current
+    ✓ Archive
+    ✗ Historic
 Schema:
-        Field { name: "SETTLEMENTDATE", data_type: Timestamp(Second, None), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "NRM_DATETIME", data_type: Timestamp(Second, None), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "DIRECTIONAL_INTERCONNECTORID", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "NRM_ACTIVATED_FLAG", data_type: Boolean, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "CUMUL_NEGRESIDUE_AMOUNT", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "CUMUL_NEGRESIDUE_PREV_TI", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "NEGRESIDUE_CURRENT_TI", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "NEGRESIDUE_PD_NEXT_TI", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "PRICE_REVISION", data_type: Utf8, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "PREDISPATCHSEQNO", data_type: Utf8, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "EVENT_ACTIVATED_DI", data_type: Timestamp(Second, None), nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "EVENT_DEACTIVATED_DI", data_type: Timestamp(Second, None), nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "DI_NOTBINDING_COUNT", data_type: Int16, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "DI_VIOLATED_COUNT", data_type: Int16, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
-        Field { name: "NRM_CONSTRAINT_BLOCKED_FLAG", data_type: Boolean, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+     Name                          Data type                Nullable
+    ------------------------------------------------------------------
+     SETTLEMENTDATE                Timestamp(Second, None)  ✗
+     NRM_DATETIME                  Timestamp(Second, None)  ✗
+     DIRECTIONAL_INTERCONNECTORID  Utf8                     ✗
+     NRM_ACTIVATED_FLAG            Boolean                  ✓
+     CUMUL_NEGRESIDUE_AMOUNT       Float64                  ✓
+     CUMUL_NEGRESIDUE_PREV_TI      Float64                  ✓
+     NEGRESIDUE_CURRENT_TI         Float64                  ✓
+     NEGRESIDUE_PD_NEXT_TI         Float64                  ✓
+     PRICE_REVISION                Utf8                     ✓
+     PREDISPATCHSEQNO              Utf8                     ✓
+     EVENT_ACTIVATED_DI            Timestamp(Second, None)  ✓
+     EVENT_DEACTIVATED_DI          Timestamp(Second, None)  ✓
+     DI_NOTBINDING_COUNT           Int16                    ✓
+     DI_VIOLATED_COUNT             Int16                    ✓
+     NRM_CONSTRAINT_BLOCKED_FLAG   Boolean                  ✓
 ```
 
 # Todo

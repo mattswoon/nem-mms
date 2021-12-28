@@ -21,6 +21,16 @@ use parquet::{
     file::properties::WriterProperties,
     arrow::arrow_writer::ArrowWriter,
 };
+use prettytable::{
+    Table, 
+    row, 
+    cell, 
+    format::{
+        FormatBuilder,
+        LinePosition,
+        LineSeparator
+    },
+};
 use std::{
     fs::OpenOptions,
     ffi::{OsStr, OsString},
@@ -135,27 +145,44 @@ impl PackageInfo {
 
 impl Display for PackageInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let indent = "    ";
         write!(f, "Pacakge name: {}\n", self.name)?;
         write!(f, "Supported fetch operations:\n")?;
         if self.supports_fetch_current {
-            write!(f, "{}", "\t✓ Current\n".green())?;
+            write!(f, "{}{}", indent, "✓ Current\n".green())?;
         } else {
-            write!(f, "{}", "\t✗ Current\n".red())?;
+            write!(f, "{}{}", indent, "✗ Current\n".red())?;
         }
         if self.supports_fetch_archive {
-            write!(f, "{}", "\t✓ Archive\n".green())?;
+            write!(f, "{}{}", indent, "✓ Archive\n".green())?;
         } else {
-            write!(f, "{}", "\t✗ Archive\n".red())?;
+            write!(f, "{}{}", indent, "✗ Archive\n".red())?;
         }
         if self.supports_fetch_historic {
-            write!(f, "{}", "\t✓ Historic\n".green())?;
+            write!(f, "{}{}", indent, "✓ Historic\n".green())?;
         } else {
-            write!(f, "{}", "\t✗ Historic\n".red())?;
+            write!(f, "{}{}", indent, "✗ Historic\n".red())?;
         }
         write!(f, "Schema: \n")?;
+        let mut schema_table = Table::new();
+        schema_table.set_format(FormatBuilder::new()
+                                .borders(' ')
+                                .column_separator(' ')
+                                .separator(LinePosition::Title, LineSeparator::new('-', '-', '-', '-'))
+                                .indent(indent.len())
+                                .padding(0, 1)
+                                .build());
         for field in self.schema.fields() {
-            write!(f, "\t{}\n", field)?;
+            schema_table.add_row(
+                row![
+                    cell!(field.name()),
+                    cell!(field.data_type()),
+                    field.is_nullable().then(|| cell!("✓".green())).unwrap_or(cell!("✗".red()))
+                ]
+            );
         }
+        schema_table.set_titles(row!["Name", "Data type", "Nullable"]);
+        write!(f, "{}", schema_table)?;
         Ok(())
     }
 }
