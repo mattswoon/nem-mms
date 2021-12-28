@@ -21,7 +21,7 @@ Help can be sought in the usual fashion
 ```
 > nem-mms help
 
-nem-mms 0.1.2
+nem-mms 0.1.3
 mattswoon
 Fetch and parse AEMO's MMS data into parquet
 
@@ -35,6 +35,7 @@ FLAGS:
 SUBCOMMANDS:
     fetch    Fetch MMS files from Nemweb
     help     Prints this message or the help of the given subcommand(s)
+    info     Information about supported MMS packages
     parse    Parse a flat file csv or zip
 ```
 
@@ -104,6 +105,53 @@ This operation will download all files on the relevant page.
 
 ```
 > nem-mms fetch DISPATCH_UNIT_SCADA current ./downloaded_files/
+```
+
+## Info
+
+Not all packages have the same level of support - flat files can be parsed
+but fetching from the different depositories is patchy. 
+
+Fetch operations are coloured green or red on supported terminals.
+
+```
+> nem-mms DISPATCH_UNIT_SCADA
+
+Pacakge name: DISPATCH_UNIT_SCADA
+Supported fetch operations:
+        ✓ Current
+        ✓ Archive
+        ✓ Historic
+Schema:
+        Field { name: "DUID", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "SETTLEMENTDATE", data_type: Timestamp(Second, None), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "SCADAVALUE", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+```
+
+```
+> nem-mms info DISPATCH_NEGATIVE_RESIDUE
+
+Pacakge name: DISPATCH_NEGATIVE_RESIDUE
+Supported fetch operations:
+        ✓ Current
+        ✓ Archive
+        ✗ Historic
+Schema:
+        Field { name: "SETTLEMENTDATE", data_type: Timestamp(Second, None), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "NRM_DATETIME", data_type: Timestamp(Second, None), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "DIRECTIONAL_INTERCONNECTORID", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "NRM_ACTIVATED_FLAG", data_type: Boolean, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "CUMUL_NEGRESIDUE_AMOUNT", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "CUMUL_NEGRESIDUE_PREV_TI", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "NEGRESIDUE_CURRENT_TI", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "NEGRESIDUE_PD_NEXT_TI", data_type: Float64, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "PRICE_REVISION", data_type: Utf8, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "PREDISPATCHSEQNO", data_type: Utf8, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "EVENT_ACTIVATED_DI", data_type: Timestamp(Second, None), nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "EVENT_DEACTIVATED_DI", data_type: Timestamp(Second, None), nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "DI_NOTBINDING_COUNT", data_type: Int16, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "DI_VIOLATED_COUNT", data_type: Int16, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
+        Field { name: "NRM_CONSTRAINT_BLOCKED_FLAG", data_type: Boolean, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: None }
 ```
 
 # Todo
