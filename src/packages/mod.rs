@@ -47,15 +47,17 @@ pub enum Package {
     DispatchNegativeResidue,
     DispatchLocalPrice,
     RooftopPvActual,
+    RooftopPvForecast,
 }
 
 impl Package {
-    pub fn available_packages() -> [&'static str; 4] {
+    pub fn available_packages() -> [&'static str; 5] {
         use Package::*;
         [DispatchUnitScada.as_str(),
          DispatchNegativeResidue.as_str(),
          DispatchLocalPrice.as_str(),
-         RooftopPvActual.as_str()]
+         RooftopPvActual.as_str(),
+         RooftopPvForecast.as_str()]
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
@@ -65,6 +67,7 @@ impl Package {
              "DISPATCH_NEGATIVE_RESIDUE" => Some(DispatchNegativeResidue),
              "DISPATCH_LOCAL_PRICE"      => Some(DispatchLocalPrice),
              "ROOFTOP_PV_ACTUAL"         => Some(RooftopPvActual),
+             "ROOFTOP_PV_FORECAST"       => Some(RooftopPvForecast),
              _ => None
         }
     }
@@ -76,6 +79,7 @@ impl Package {
             DispatchNegativeResidue => "DISPATCH_NEGATIVE_RESIDUE",
             DispatchLocalPrice => "DISPATCH_LOCAL_PRICE",
             RooftopPvActual => "ROOFTOP_PV_ACTUAL",
+            RooftopPvForecast => "ROOFTOP_PV_FORECAST",
         }
     }
 
@@ -97,6 +101,7 @@ impl Package {
             DispatchNegativeResidue => &schema::DISPATCH_NEGATIVE_RESIDUE,
             DispatchLocalPrice => &schema::DISPATCH_LOCAL_PRICE,
             RooftopPvActual => &schema::ROOFTOP_PV_ACTUAL,
+            RooftopPvForecast => &schema::ROOFTOP_PV_FORECAST,
         }
     }
 

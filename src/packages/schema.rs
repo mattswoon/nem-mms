@@ -54,4 +54,17 @@ lazy_static! {
             Field::new("LASTCHANGED", DataType::Timestamp(TimeUnit::Second, None), true)
         ]
     );
+
+    pub static ref ROOFTOP_PV_FORECAST: Schema = Schema::new(
+        vec![
+            Field::new("VERSION_DATETIME", DataType::Timestamp(TimeUnit::Second, None), false),
+            Field::new("REGIONID", DataType::Utf8, false),
+            Field::new("INTERVAL_DATETIME", DataType::Timestamp(TimeUnit::Second, None), false),
+            Field::new("POWERMEAN", DataType::Float64, true),
+            Field::new("POWERPOE50", DataType::Float64, true),
+            Field::new("POWERPOELOW", DataType::Float64, true),
+            Field::new("POWERPOEHIGH", DataType::Float64, true),
+            Field::new("LASTCHANGED", DataType::Timestamp(TimeUnit::Second, None), true)
+        ]
+    );
 }
