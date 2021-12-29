@@ -31,6 +31,8 @@ use prettytable::{
         LineSeparator
     },
 };
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use std::{
     fs::OpenOptions,
     ffi::{OsStr, OsString},
@@ -41,7 +43,7 @@ use std::{
 };
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, EnumIter)]
 pub enum Package {
     DispatchUnitScada,
     DispatchNegativeResidue,
@@ -51,13 +53,10 @@ pub enum Package {
 }
 
 impl Package {
-    pub fn available_packages() -> [&'static str; 5] {
-        use Package::*;
-        [DispatchUnitScada.as_str(),
-         DispatchNegativeResidue.as_str(),
-         DispatchLocalPrice.as_str(),
-         RooftopPvActual.as_str(),
-         RooftopPvForecast.as_str()]
+    pub fn available_packages() -> Vec<&'static str> {
+        Package::iter()
+            .map(|p| p.as_str())
+            .collect()
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
@@ -72,7 +71,7 @@ impl Package {
         }
     }
 
-    pub fn as_str(&self) -> &'_ str {
+    pub fn as_str(&self) -> &'static str {
         use Package::*;
         match self {
             DispatchUnitScada => "DISPATCH_UNIT_SCADA",
