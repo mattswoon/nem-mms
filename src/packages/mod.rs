@@ -89,6 +89,7 @@ impl Package {
             ("DISPATCH", "NEGATIVE_RESIDUE") => Some(DispatchNegativeResidue),
             ("DISPATCH", "LOCAL_PRICE") => Some(DispatchLocalPrice),
             ("ROOFTOP", "ACTUAL") => Some(RooftopPvActual),
+            ("ROOFTOP", "FORECAST") => Some(RooftopPvForecast),
             _ => None
         }
     }
