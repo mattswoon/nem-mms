@@ -17,6 +17,7 @@ fn package_url_part(package: &Package) -> Option<&'_ str> {
         DispatchNegativeResidue => Some("DISPATCH_NEGATIVE_RESIDUE"),
         DispatchLocalPrice => None,
         RooftopPvActual => Some("ROOFTOP_PV/ACTUAL"),
+        RooftopPvForecast => None,
     }
 }
 
@@ -134,7 +135,9 @@ impl HistoricDataDownloader {
             DispatchUnitScada => Some(format!("PUBLIC_DVD_DISPATCH_UNIT_SCADA_{}{}010000.zip", &self.year.as_str(), &self.month.as_str())),
             DispatchNegativeResidue => None,
             DispatchLocalPrice => None,
-            RooftopPvActual => Some(format!("PUBLIC_DVD_ROOFTOP_PV_ACTUAL_{}{}010000.zip", &self.year.as_str(), &self.month.as_str()))
+            RooftopPvActual => Some(format!("PUBLIC_DVD_ROOFTOP_PV_ACTUAL_{}{}010000.zip", &self.year.as_str(), &self.month.as_str())),
+            RooftopPvForecast => None
+            
         }?;
         let url = format!("Data_Archive/Wholesale_Electricity/MMSDM/{}/MMSDM_{}_{}/MMSDM_Historical_Data_SQLLoader/DATA/{}", &self.year.as_str(), &self.year.as_str(), &self.month.as_str(), filename);
         Some(url)
