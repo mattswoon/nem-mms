@@ -48,6 +48,7 @@ pub enum Package {
     DispatchUnitScada,
     DispatchNegativeResidue,
     DispatchLocalPrice,
+    DispatchPrice,
     RooftopPvActual,
     RooftopPvForecast,
 }
@@ -67,6 +68,7 @@ impl Package {
              "DISPATCH_LOCAL_PRICE"      => Some(DispatchLocalPrice),
              "ROOFTOP_PV_ACTUAL"         => Some(RooftopPvActual),
              "ROOFTOP_PV_FORECAST"       => Some(RooftopPvForecast),
+             "DISPATCHPRICE"             => Some(DispatchPrice),
              _ => None
         }
     }
@@ -79,6 +81,7 @@ impl Package {
             DispatchLocalPrice => "DISPATCH_LOCAL_PRICE",
             RooftopPvActual => "ROOFTOP_PV_ACTUAL",
             RooftopPvForecast => "ROOFTOP_PV_FORECAST",
+            DispatchPrice => "DISPATCHPRICE",
         }
     }
 
@@ -90,6 +93,7 @@ impl Package {
             ("DISPATCH", "LOCAL_PRICE") => Some(DispatchLocalPrice),
             ("ROOFTOP", "ACTUAL") => Some(RooftopPvActual),
             ("ROOFTOP", "FORECAST") => Some(RooftopPvForecast),
+            ("DISPATCH", "PRICE") => Some(DispatchPrice),
             _ => None
         }
     }
@@ -102,6 +106,7 @@ impl Package {
             DispatchLocalPrice => &schema::DISPATCH_LOCAL_PRICE,
             RooftopPvActual => &schema::ROOFTOP_PV_ACTUAL,
             RooftopPvForecast => &schema::ROOFTOP_PV_FORECAST,
+            DispatchPrice => &schema::DISPATCHPRICE,
         }
     }
 
