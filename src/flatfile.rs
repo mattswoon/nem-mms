@@ -6,7 +6,6 @@ use std::{
 };
 use arrow::{
     datatypes::{
-        Schema,
         DataType,
         Float64Type,
         Int16Type,
@@ -22,11 +21,13 @@ use arrow::{
     },
     record_batch::RecordBatch,
 };
-use rayon::prelude::*;
-use crate::error::{
-    Error,
-    BadPayloadDetails,
-    ParseErrorDetails,
+use crate::{
+    error::{
+        Error,
+        BadPayloadDetails,
+        ParseErrorDetails,
+    },
+    packages::Package
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,8 +36,6 @@ pub struct FlatFile(Vec<Record>);
 impl FlatFile {
     pub fn read_csv<R: std::io::Read>(rdr: csv::Reader<R>) -> Result<FlatFile, Error> {
         let records = rdr.into_records()
-            .collect::<Vec<_>>()
-            .into_par_iter()
             .map(|r| r.map_err(Error::Csv).and_then(Record::from_csv_record))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(FlatFile(records))
@@ -50,27 +49,71 @@ impl FlatFile {
         &self.0
     }
 
-    pub fn information_record(&self) -> Option<&'_ InformationRecord> {
-        self.0.iter()
-            .filter_map(|r| {
-                match r {
-                    Record::Information(i) => Some(i),
-                    _ => None
+    pub fn iter(&self) -> FlatFileTableIter<'_> {
+        FlatFileTableIter {
+            flatfile: &self,
+            record_idx: 0
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FlatFileTableIter<'a> {
+    flatfile: &'a FlatFile,
+    record_idx: usize
+}
+
+impl<'a> Iterator for FlatFileTableIter<'a> {
+    type Item = FlatFileTable;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (idx, table) = FlatFileTable::from_flatfile_at(self.flatfile, self.record_idx);
+        self.record_idx = self.record_idx + idx;
+        table
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FlatFileTable {
+    information_record: InformationRecord,
+    data_records: Vec<DataRecord>
+}
+
+impl FlatFileTable {
+    fn from_flatfile_at(flatfile: &FlatFile, at: usize) -> (usize, Option<FlatFileTable>) {
+        let mut information_record: Option<InformationRecord> = None;
+        let mut data_records: Vec<DataRecord> = Vec::new();
+        let mut idx = 0;
+        for record in flatfile.records().iter().skip(at) {
+            idx = idx + 1;
+            match information_record {
+                Some(ref i) => match record {
+                    Record::Information(_) | Record::Comment(_) => { return (idx, Some(FlatFileTable { information_record: i.clone(), data_records })) },
+                    Record::Data(d) => { data_records.push(d.clone()); },
+                },
+                None => match record {
+                    Record::Information(i) => {
+                        information_record = Some(i.clone());
+                    },
+                    Record::Data(_) | Record::Comment(_) => (),
                 }
-            })
-            .next()
+            };
+        }
+        (idx, None)
     }
 
-    pub fn to_arrow(&self, schema: &Schema) -> Result<RecordBatch, Error> {
-        let column_headers = self.information_record()
-            .map(|r| {
-                let mut hmap: HashMap<String, usize> = HashMap::new();
-                for (i, colh) in r.column_headers.iter().enumerate() {
-                    hmap.insert(colh.clone(), i);
-                }
-                hmap
-            })
-            .ok_or(Error::MissingInformationRecord)?;
+    pub fn len(&self) -> usize {
+        self.data_records.len()
+    }
+
+    pub fn to_arrow(&self) -> Result<(Package, RecordBatch), Error> {
+        let column_headers = self.information_record.column_header_indices();
+        let package = Package::from_information_record(&self.information_record)
+            .ok_or(Error::UnrecognizedPackage { 
+                report_type: self.information_record.report_type.clone(),
+                report_subtype: self.information_record.report_subtype.clone() 
+            })?;
+        let schema = package.schema();
         let mut columns = Vec::new();
         for field in schema.fields() {
             column_headers.get(field.name())
@@ -81,10 +124,11 @@ impl FlatFile {
                     ()
                 })?;
         }
-        RecordBatch::try_new(
+        let record_batch = RecordBatch::try_new(
             Arc::new(schema.clone()),
             columns
-        ).map_err(Error::Arrow)
+        ).map_err(Error::Arrow)?;
+        Ok((package, record_batch))
     }
 
     pub fn get_array_ref(&self, idx: usize, datatype: &DataType, allow_nulls: bool) -> Result<ArrayRef, Error> {
@@ -103,25 +147,20 @@ impl FlatFile {
     fn get_string_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = StringBuilder::new(len);
-        for record in self.records() {
-            match record {
-                Record::Data(record) => {
-                    let value = record.data.get(idx)
-                        .ok_or(Error::IndexError(idx))?;
-                    match value {
-                        Some(v) => {
-                            let val = v.clone()
-                                .as_string()
-                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Float64, value: value.clone() })?;
-                            arr_builder.append_value(val)
-                                .map_err(Error::Arrow)?;
-                        },
-                        None if allow_nulls => arr_builder.append_null()
-                            .map_err(Error::Arrow)?,
-                        None => return Err(Error::NullError)
-                    };
+        for record in &self.data_records {
+            let value = record.data.get(idx)
+                .ok_or(Error::IndexError(idx))?;
+            match value {
+                Some(v) => {
+                    let val = v.clone()
+                        .as_string()
+                        .ok_or(Error::DatatypeMismatch { datatype: DataType::Float64, value: value.clone() })?;
+                    arr_builder.append_value(val)
+                        .map_err(Error::Arrow)?;
                 },
-                _ => {}
+                None if allow_nulls => arr_builder.append_null()
+                    .map_err(Error::Arrow)?,
+                None => return Err(Error::NullError)
             }
         }
         Ok(Arc::new(arr_builder.finish()))
@@ -130,25 +169,20 @@ impl FlatFile {
     fn get_float64_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = PrimitiveBuilder::<Float64Type>::new(len);
-        for record in self.records() {
-            match record {
-                Record::Data(record) => {
-                    let value = record.data.get(idx)
-                        .ok_or(Error::IndexError(idx))?;
-                    match value {
-                        Some(v) => {
-                            let val = v.clone()
-                                .as_f64()
-                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Float64, value: value.clone() })?;
-                            arr_builder.append_value(val)
-                                .map_err(Error::Arrow)?;
-                        },
-                        None if allow_nulls => arr_builder.append_null()
-                            .map_err(Error::Arrow)?,
-                        None => return Err(Error::NullError)
-                    };
+        for record in &self.data_records {
+            let value = record.data.get(idx)
+                .ok_or(Error::IndexError(idx))?;
+            match value {
+                Some(v) => {
+                    let val = v.clone()
+                        .as_f64()
+                        .ok_or(Error::DatatypeMismatch { datatype: DataType::Float64, value: value.clone() })?;
+                    arr_builder.append_value(val)
+                        .map_err(Error::Arrow)?;
                 },
-                _ => {}
+                None if allow_nulls => arr_builder.append_null()
+                    .map_err(Error::Arrow)?,
+                None => return Err(Error::NullError)
             }
         }
         Ok(Arc::new(arr_builder.finish()))
@@ -157,25 +191,20 @@ impl FlatFile {
     fn get_int16_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = PrimitiveBuilder::<Int16Type>::new(len);
-        for record in self.records() {
-            match record {
-                Record::Data(record) => {
-                    let value = record.data.get(idx)
-                        .ok_or(Error::IndexError(idx))?;
-                    match value {
-                        Some(v) => {
-                            let val = v.clone()
-                                .as_i16()
-                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Int16, value: value.clone() })?;
-                            arr_builder.append_value(val)
-                                .map_err(Error::Arrow)?;
-                        },
-                        None if allow_nulls => arr_builder.append_null()
-                            .map_err(Error::Arrow)?,
-                        None => return Err(Error::NullError)
-                    };
+        for record in &self.data_records {
+            let value = record.data.get(idx)
+                .ok_or(Error::IndexError(idx))?;
+            match value {
+                Some(v) => {
+                    let val = v.clone()
+                        .as_i16()
+                        .ok_or(Error::DatatypeMismatch { datatype: DataType::Int16, value: value.clone() })?;
+                    arr_builder.append_value(val)
+                        .map_err(Error::Arrow)?;
                 },
-                _ => {}
+                None if allow_nulls => arr_builder.append_null()
+                    .map_err(Error::Arrow)?,
+                None => return Err(Error::NullError)
             }
         }
         Ok(Arc::new(arr_builder.finish()))
@@ -184,25 +213,20 @@ impl FlatFile {
     fn get_int8_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = PrimitiveBuilder::<Int8Type>::new(len);
-        for record in self.records() {
-            match record {
-                Record::Data(record) => {
-                    let value = record.data.get(idx)
-                        .ok_or(Error::IndexError(idx))?;
-                    match value {
-                        Some(v) => {
-                            let val = v.clone()
-                                .as_i8()
-                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Int8, value: value.clone() })?;
-                            arr_builder.append_value(val)
-                                .map_err(Error::Arrow)?;
-                        },
-                        None if allow_nulls => arr_builder.append_null()
-                            .map_err(Error::Arrow)?,
-                        None => return Err(Error::NullError)
-                    };
+        for record in &self.data_records {
+            let value = record.data.get(idx)
+                .ok_or(Error::IndexError(idx))?;
+            match value {
+                Some(v) => {
+                    let val = v.clone()
+                        .as_i8()
+                        .ok_or(Error::DatatypeMismatch { datatype: DataType::Int8, value: value.clone() })?;
+                    arr_builder.append_value(val)
+                        .map_err(Error::Arrow)?;
                 },
-                _ => {}
+                None if allow_nulls => arr_builder.append_null()
+                    .map_err(Error::Arrow)?,
+                None => return Err(Error::NullError)
             }
         }
         Ok(Arc::new(arr_builder.finish()))
@@ -211,25 +235,20 @@ impl FlatFile {
     fn get_boolean_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = BooleanBuilder::new(len);
-        for record in self.records() {
-            match record {
-                Record::Data(record) => {
-                    let value = record.data.get(idx)
-                        .ok_or(Error::IndexError(idx))?;
-                    match value {
-                        Some(v) => {
-                            let val = v.clone()
-                                .as_bool()
-                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Boolean, value: value.clone() })?;
-                            arr_builder.append_value(val)
-                                .map_err(Error::Arrow)?;
-                        },
-                        None if allow_nulls => arr_builder.append_null()
-                            .map_err(Error::Arrow)?,
-                        None => return Err(Error::NullError)
-                    };
+        for record in &self.data_records {
+            let value = record.data.get(idx)
+                .ok_or(Error::IndexError(idx))?;
+            match value {
+                Some(v) => {
+                    let val = v.clone()
+                        .as_bool()
+                        .ok_or(Error::DatatypeMismatch { datatype: DataType::Boolean, value: value.clone() })?;
+                    arr_builder.append_value(val)
+                        .map_err(Error::Arrow)?;
                 },
-                _ => {}
+                None if allow_nulls => arr_builder.append_null()
+                    .map_err(Error::Arrow)?,
+                None => return Err(Error::NullError)
             }
         }
         Ok(Arc::new(arr_builder.finish()))
@@ -238,31 +257,27 @@ impl FlatFile {
     fn get_timestampsecond_array(&self, idx: usize, allow_nulls: bool) -> Result<ArrayRef, Error> {
         let len = self.len();
         let mut arr_builder = PrimitiveBuilder::<TimestampSecondType>::new(len);
-        for record in self.records() {
-            match record {
-                Record::Data(record) => {
-                    let value = record.data.get(idx)
-                        .ok_or(Error::IndexError(idx))?;
-                    match value {
-                        Some(v) => {
-                            let val = v.clone()
-                                .as_datetime()
-                                .map(|v| v.timestamp())
-                                .ok_or(Error::DatatypeMismatch { datatype: DataType::Timestamp(TimeUnit::Second, None), value: value.clone() })?;
-                            arr_builder.append_value(val)
-                                .map_err(Error::Arrow)?;
-                        },
-                        None if allow_nulls => arr_builder.append_null()
-                            .map_err(Error::Arrow)?,
-                        None => return Err(Error::NullError)
-                    };
+        for record in &self.data_records {
+            let value = record.data.get(idx)
+                .ok_or(Error::IndexError(idx))?;
+            match value {
+                Some(v) => {
+                    let val = v.clone()
+                        .as_datetime()
+                        .map(|v| v.timestamp())
+                        .ok_or(Error::DatatypeMismatch { datatype: DataType::Timestamp(TimeUnit::Second, None), value: value.clone() })?;
+                    arr_builder.append_value(val)
+                        .map_err(Error::Arrow)?;
                 },
-                _ => {}
+                None if allow_nulls => arr_builder.append_null()
+                    .map_err(Error::Arrow)?,
+                None => return Err(Error::NullError)
             }
         }
         Ok(Arc::new(arr_builder.finish()))
     }
 }
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Record {
@@ -481,6 +496,14 @@ pub struct InformationRecord {
 }
 
 impl InformationRecord {
+    pub fn column_header_indices(&self) -> HashMap<String, usize> {
+        let mut hmap: HashMap<String, usize> = HashMap::new();
+        for (i, colh) in self.column_headers.iter().enumerate() {
+            hmap.insert(colh.clone(), i);
+        }
+        hmap
+    }
+
     pub fn from_csv_record(record: csv::StringRecord) -> Result<Self, Error> {
         let report_type = record.get(1)
             .map(ToString::to_string)
