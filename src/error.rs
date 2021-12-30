@@ -6,6 +6,7 @@ pub enum Error {
     ParseDateError(ParseErrorDetails<chrono::format::ParseError>),
     ParseTimeError(ParseErrorDetails<chrono::format::ParseError>),
     ParseIntError(ParseErrorDetails<std::num::ParseIntError>),
+    UnrecognizedPackage { report_type: String, report_subtype: String },
     Csv(csv::Error),
     Io(std::io::Error),
     Zip(zip::result::ZipError),

@@ -110,11 +110,7 @@ impl Package {
         }
     }
 
-    pub fn to_arrow(&self, flatfile: FlatFile) -> Result<RecordBatch, Error> {
-        flatfile.to_arrow(self.schema())
-    }
-
-    pub fn to_parquet<P: AsRef<Path>>(&self, flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
+    pub fn to_parquet<P: AsRef<Path>>(&self, batches: Vec<RecordBatch>, path: P) -> Result<(), Error> {
         let schema = Arc::new(self.schema().clone());
         let file = OpenOptions::new()
             .write(true)
@@ -124,8 +120,7 @@ impl Package {
         let props = WriterProperties::builder().build();
         let mut writer = ArrowWriter::try_new(file, schema, Some(props))
             .map_err(Error::Parquet)?;
-        for flatfile in flatfiles {
-            let batch = self.to_arrow(flatfile)?;
+        for batch in batches {
             writer.write(&batch).map_err(Error::Parquet)?;
         }
         writer.close().map_err(Error::Parquet)?;
@@ -198,30 +193,34 @@ impl Display for PackageInfo {
 }
 
 pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(), Error> {
-    let mut reports: HashMap<Package, Vec<FlatFile>> = HashMap::new();
+    let mut reports: HashMap<Package, Vec<RecordBatch>> = HashMap::new();
     for flatfile in flatfiles {
-        flatfile.information_record()
-            .and_then(|i| Package::from_information_record(i).or_else(|| {
-                println!(
-                    "Unrecognized package - skipping...\n\tReport type:\t{}\n\tSub-type:\t{}",
-                    i.report_type,
-                    i.report_subtype
-                );
-                None
-            }))
-            .map(|p| {
-                if let Some(v) = reports.get_mut(&p) {
-                    (*v).push(flatfile);
-                } else {
-                    reports.insert(p, vec![flatfile]);
-                }});
-    }
+        for res in flatfile.iter().map(|t| t.to_arrow()) {
+            match res {
+                Err(e) => match e {
+                    Error::UnrecognizedPackage { report_type, report_subtype } => 
+                        // TODO: change this to a debug log, it's very noisy
+                        println!("Unrecognized package ... skipping\n\tReport type: {}\n\tReport subtype: {}",
+                                  report_type,
+                                  report_subtype),
+                    _ => return Err(e)
+                },
+                Ok((package, rb)) => {
+                    if let Some(v) = reports.get_mut(&package) {
+                        (*v).push(rb);
+                    } else {
+                        reports.insert(package, vec![rb]);
+                    }
+                }
+            }
+        }
+    };
     if reports.len() <= 1 {
-        for (p, fs) in reports.into_iter() {
-            p.to_parquet(fs, &path)?;
+        for (p, bs) in reports.into_iter() {
+            p.to_parquet(bs, &path)?;
         }
     } else {
-        for (p, fs) in reports.into_iter() {
+        for (p, bs) in reports.into_iter() {
             let ppath = if path.as_ref().is_dir() {
                 path.as_ref().join(format!("{}", p.as_str())).with_extension("parquet")
             } else {
@@ -230,7 +229,7 @@ pub fn to_parquet<P: AsRef<Path>>(flatfiles: Vec<FlatFile>, path: P) -> Result<(
                     .ok_or(Error::InvalidFilename(path.as_ref().to_path_buf()))?;
                 Path::new(&filename).with_extension("parquet")
             };
-            p.to_parquet(fs, ppath)?;
+            p.to_parquet(bs, ppath)?;
         }
     }
     Ok(())
