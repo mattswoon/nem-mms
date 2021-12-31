@@ -14,6 +14,16 @@ use std::{
 
 
 fn main() {
+    match _main() {
+        Ok(_) => (),
+        Err(e) => { 
+            eprintln!("Error: {}", e);
+            std::process::exit(1)
+        }
+    }
+}
+
+fn _main() -> Result<(), Error> {
     let matches = App::new("nem-mms")
         .version(crate_version!())
         .author("mattswoon")
@@ -68,10 +78,10 @@ fn main() {
             let path = sub_m.value_of("PATH")
                 .expect("Expected a path");
             let path = std::path::Path::new(&path);
-            let parsed_flatfiles = parse_flatfiles(&path).unwrap();
+            let parsed_flatfiles = parse_flatfiles(&path)?;
             let out = std::path::Path::new(&path)
                 .with_extension("parquet");
-            packages::to_parquet(parsed_flatfiles, out).unwrap();
+            packages::to_parquet(parsed_flatfiles, out)?;
         },
         ("fetch", Some(sub_m)) => {
             let package = sub_m.value_of("PACKAGE")
@@ -86,20 +96,20 @@ fn main() {
                 "current" => {
                     let archive = packages::fetch::Archive::Current;
                     let scraper = packages::fetch::NemwebScraper { package, archive };
-                    scraper.download_all(dir).unwrap();
+                    scraper.download_all(dir)?;
                 },
                 "archive" => {
                     let archive = packages::fetch::Archive::Archive;
                     let scraper = packages::fetch::NemwebScraper { package, archive };
-                    scraper.download_all(dir).unwrap();
+                    scraper.download_all(dir)?;
                 },
                 "historic" => {
                     let year = sub_m.value_of("year").expect("Year required");
                     let month = sub_m.value_of("month").expect("Month required");
                     packages::fetch::HistoricDataDownloader::new(package)
-                        .with_year(year).unwrap()
-                        .with_month(month).unwrap()
-                        .download(dir).unwrap();
+                        .with_year(year)?
+                        .with_month(month)?
+                        .download(dir)?;
                 },
                 _ => panic!("Invalid ARCHIVE")
             }
@@ -112,7 +122,8 @@ fn main() {
             println!("{}", info);
         },
         _ => {}
-    }
+    };
+    Ok(())
 }
 
 fn parse_flatfiles<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Vec<FlatFile>, Error> {
@@ -122,7 +133,7 @@ fn parse_flatfiles<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Vec<Flat
                 .flexible(true)
                 .has_headers(false)
                 .from_path(path)
-                .expect("Couldn't make reader");
+                .map_err(Error::Csv)?;
             let flatfile = FlatFile::read_csv(rdr)?;
             vec![flatfile]
         },
