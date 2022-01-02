@@ -32,6 +32,7 @@ use prettytable::{
     },
 };
 use strum::IntoEnumIterator;
+use serde::{Serialize, Deserialize};
 use strum_macros::EnumIter;
 use std::{
     fs::OpenOptions,
@@ -43,7 +44,7 @@ use std::{
 };
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, EnumIter)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, EnumIter, Serialize, Deserialize)]
 pub enum Package {
     DispatchUnitScada,
     DispatchNegativeResidue,

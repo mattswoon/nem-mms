@@ -28,6 +28,7 @@ pub enum Error {
     FailedToDownload { url: String, path: std::path::PathBuf, status: reqwest::StatusCode },
     InvalidYear(String),
     InvalidMonth(String),
+    ManageError(crate::manage::state::Error),
 }
 
 impl Display for Error {
@@ -84,6 +85,8 @@ impl Display for Error {
                 write!(f, "Invalid year (format is yyyy or yy): {}", y),
             InvalidMonth(m) =>
                 write!(f, "Invalid month (format is mm): {}", m),
+            ManageError(e) =>
+                write!(f, "Manage error:\n{}", e),
         }
     }
 }

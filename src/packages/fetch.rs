@@ -22,7 +22,7 @@ fn package_url_part(package: &Package) -> Option<&'_ str> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Month {
     Jan,
     Feb,
@@ -81,7 +81,7 @@ impl Month {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Year(String);
 
 impl Year {
