@@ -6,6 +6,7 @@ use nem_mms::{
     packages,
     zip::read_zip,
     error::Error,
+    manage::state::DepositoryState,
 };
 use std::{
     fs::OpenOptions,
@@ -71,6 +72,20 @@ fn _main() -> Result<(), Error> {
                          .required(true)
                          .takes_value(true)
                          .possible_values(&packages::Package::available_packages())))
+        .subcommand(SubCommand::with_name("manage")
+                    .about("Manage a directory of MMS data")
+                    .subcommand(SubCommand::with_name("init")
+                                .help("Initialize a local data directory")
+                                .arg(Arg::with_name("DIRECTORY")
+                                     .required(true)
+                                     .takes_value(true)
+                                     .default_value(".")))
+                    .subcommand(SubCommand::with_name("update")
+                                .help("Fetch, download and extract new data files")
+                                .arg(Arg::with_name("DIRECTORY")
+                                     .required(true)
+                                     .takes_value(true)
+                                     .default_value("."))))
         .get_matches();
 
     match matches.subcommand() {
@@ -120,6 +135,20 @@ fn _main() -> Result<(), Error> {
                 .expect("Not a valid package");
             let info = packages::PackageInfo::new(package);
             println!("{}", info);
+        },
+        ("manage", Some(sub_m)) => {
+            match sub_m.subcommand() {
+                ("init", Some(sub_m)) => {
+                    let path = sub_m.value_of("DIRECTORY")
+                        .map(Path::new)
+                        .expect("Expected a directory");
+                    DepositoryState::init(path)
+                        .map_err(Error::ManageError)?;
+                },
+                _ => {
+                    eprintln!("Not implemented yet, sorry");
+                }
+            }
         },
         _ => {}
     };
